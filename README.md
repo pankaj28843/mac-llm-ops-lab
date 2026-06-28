@@ -24,7 +24,8 @@ Future real-model runtime checks must pass the CPU-safe preflight guard in
 authorization and skips plans whose estimated model weights, KV cache, runtime
 overhead, and service overhead exceed the configured memory ceiling. It can also
 build a JSON-safe preflight report for future runtime evidence before any risky
-command runs.
+command runs. Runtime guard tests also enforce the `.gitignore` policy for
+local model caches, traces, raw benchmarks, logs, database files, and artifacts.
 
 For direct Python use:
 

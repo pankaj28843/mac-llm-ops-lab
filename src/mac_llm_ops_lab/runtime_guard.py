@@ -2,6 +2,18 @@ from dataclasses import dataclass
 
 DEFAULT_MEMORY_CEILING_GIB = 24.0
 RUNTIME_PREFLIGHT_REPORT_SCHEMA_VERSION = "runtime-preflight/v1"
+REQUIRED_RUNTIME_IGNORE_PATTERNS = (
+    ".env",
+    ".env.*",
+    "data/",
+    "artifacts/",
+    "benchmarks/raw/",
+    "traces/",
+    "model-cache/",
+    "models/",
+    "*.sqlite*",
+    "*.log",
+)
 
 
 @dataclass(frozen=True)
@@ -96,6 +108,19 @@ def build_runtime_preflight_report(plan: RuntimePreflightPlan) -> dict[str, obje
             "message": decision.message,
         },
     }
+
+
+def missing_runtime_ignore_patterns(gitignore_text: str) -> tuple[str, ...]:
+    configured_patterns = {
+        line.strip()
+        for line in gitignore_text.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+    return tuple(
+        pattern
+        for pattern in REQUIRED_RUNTIME_IGNORE_PATTERNS
+        if pattern not in configured_patterns
+    )
 
 
 def _has_negative_memory_estimate(plan: RuntimePreflightPlan) -> bool:

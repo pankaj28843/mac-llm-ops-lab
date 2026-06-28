@@ -1,10 +1,13 @@
 import json
+from pathlib import Path
 
 from mac_llm_ops_lab.runtime_guard import (
     DEFAULT_MEMORY_CEILING_GIB,
+    REQUIRED_RUNTIME_IGNORE_PATTERNS,
     RuntimePreflightPlan,
     build_runtime_preflight_report,
     evaluate_runtime_preflight,
+    missing_runtime_ignore_patterns,
 )
 
 
@@ -104,3 +107,31 @@ def test_runtime_preflight_report_is_json_safe_and_deterministic() -> None:
         },
     }
     assert json.loads(json.dumps(report, sort_keys=True)) == report
+
+
+def test_runtime_publish_sensitive_paths_are_covered_by_gitignore() -> None:
+    gitignore_text = Path(".gitignore").read_text(encoding="utf-8")
+
+    assert REQUIRED_RUNTIME_IGNORE_PATTERNS == (
+        ".env",
+        ".env.*",
+        "data/",
+        "artifacts/",
+        "benchmarks/raw/",
+        "traces/",
+        "model-cache/",
+        "models/",
+        "*.sqlite*",
+        "*.log",
+    )
+    assert missing_runtime_ignore_patterns(gitignore_text) == ()
+    assert missing_runtime_ignore_patterns("model-cache/\ntraces/\n") == (
+        ".env",
+        ".env.*",
+        "data/",
+        "artifacts/",
+        "benchmarks/raw/",
+        "models/",
+        "*.sqlite*",
+        "*.log",
+    )
