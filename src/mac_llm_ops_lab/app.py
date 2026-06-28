@@ -148,7 +148,12 @@ def create_app(*, backend: ModelBackend, settings: Settings | None = None) -> Fa
         prompt = _last_user_message(payload.messages)
         if payload.stream:
             return StreamingResponse(
-                _stream_events(active_backend, prompt=prompt, model=payload.model),
+                _stream_events(
+                    active_backend,
+                    prompt=prompt,
+                    model=payload.model,
+                    metrics=metrics,
+                ),
                 media_type="text/event-stream",
             )
 
@@ -246,7 +251,11 @@ def _request_route(request: Request) -> str:
 
 
 async def _stream_events(
-    backend: ModelBackend, *, prompt: str, model: str
+    backend: ModelBackend,
+    *,
+    prompt: str,
+    model: str,
+    metrics: InMemoryMetrics | None = None,
 ) -> AsyncIterator[str]:
     yield _sse_event(
         model=model,
@@ -261,6 +270,8 @@ async def _stream_events(
                 finish_reason=None,
             )
     except Exception:
+        if metrics is not None:
+            metrics.record_stream_error(model=model)
         yield _sse_event(
             model=model,
             delta={},

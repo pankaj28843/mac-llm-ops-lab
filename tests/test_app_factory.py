@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from mac_llm_ops_lab.app import _stream_events, create_app
 from mac_llm_ops_lab.config import Settings
+from mac_llm_ops_lab.metrics import InMemoryMetrics
 
 
 class FakeBackend:
@@ -344,3 +345,28 @@ def test_metrics_snapshot_uses_bounded_labels_without_prompt_text() -> None:
         "stream_errors_total": [],
     }
     assert "secret prompt" not in metrics_response.text
+
+
+def test_streaming_backend_failures_increment_bounded_error_metric() -> None:
+    backend = FakeBackend(stream_error=RuntimeError("raw stream failure"))
+    metrics = InMemoryMetrics()
+
+    async def collect_stream_events() -> list[str]:
+        return [
+            event
+            async for event in _stream_events(
+                backend,
+                prompt="secret prompt",
+                model="fake-local-model",
+                metrics=metrics,
+            )
+        ]
+
+    lines = asyncio.run(collect_stream_events())
+
+    assert lines[-1] == "data: [DONE]\n\n"
+    assert metrics.snapshot()["stream_errors_total"] == [
+        {"model": "fake-local-model", "count": 1}
+    ]
+    assert "secret prompt" not in repr(metrics.snapshot())
+    assert "raw stream failure" not in repr(metrics.snapshot())
