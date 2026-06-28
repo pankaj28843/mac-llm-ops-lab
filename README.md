@@ -9,6 +9,24 @@ private benchmark payloads.
 
 ## Development
 
+The CPU-safe fake-backend ASGI target is:
+
+```text
+mac_llm_ops_lab.cli:app
+```
+
+It builds the FastAPI app with `FakeBatchedBackend`. Importing this target does
+not download models, start Docker, connect to PostgreSQL, emit Phoenix traces,
+or require Open WebUI or Mac Studio cluster services.
+
+For direct Python use:
+
+```bash
+uv run python -c "from mac_llm_ops_lab.cli import app; print(app.title)"
+```
+
 ```bash
 uv run pytest
+uv run ruff check .
+uv run ruff format --check .
 ```
