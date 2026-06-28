@@ -15,6 +15,7 @@ The repo currently has:
 - one `vllm-mlx` standalone smoke with a downloaded MLX model
 - one model-backed project API smoke, where this repo's FastAPI app proxied to
   the native `vllm-mlx` server through the OpenAI-compatible backend adapter
+- one PostgreSQL migration and sample insert/read proof for persistence metadata
 
 The Apple Silicon backend is intentionally native and gated. It is not a
 Compose service yet. The API can be switched from the fake backend to a native
@@ -149,7 +150,6 @@ The local E2E proof is intentionally narrower than production readiness. These
 claims are not complete yet:
 
 - production secret management beyond the ignored local placeholder file
-- PostgreSQL migration and sample persistence proof
 - Phoenix OpenTelemetry trace export proof
 - Open WebUI model listing and chat smoke proof through its UI/API workflow
 - model-cache policy under ignored `model-cache/`

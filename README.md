@@ -52,10 +52,12 @@ Phoenix and Open WebUI were reachable, with Phoenix exposed on
 Evidence is saved under the ignored
 `artifacts/runtime/2026-06-28T145945+0200-e2e/` bundle.
 
-This is not yet full production proof: PostgreSQL migrations/persistence,
-Phoenix trace export, Open WebUI chat workflow integration, cancellation,
-benchmarks, MkDocs, cluster routing, and release/no-leak checks are still
-pending. A standalone `vllm-mlx` smoke did pass with
+This is not yet full production proof: Phoenix trace export, Open WebUI chat
+workflow integration, cancellation, benchmarks, MkDocs, cluster routing, and
+release/no-leak checks are still pending. PostgreSQL persistence now has
+SQLAlchemy/Alembic code and a local migration plus sample insert/read proof
+under ignored `artifacts/runtime/2026-06-28T154545+0200-postgres-persistence/`.
+A standalone `vllm-mlx` smoke did pass with
 `mlx-community/Qwen3-0.6B-8bit` on port 8100, including model download,
 `/v1/models`, chat, streaming, and `/metrics`; evidence is saved under ignored
 `artifacts/runtime/2026-06-28T151600+0200-vllm-mlx/`.
@@ -82,6 +84,8 @@ files belong under ignored `secrets/` paths and must not be committed.
 
 See `docs/runtime-stack.md` for the static-vs-runtime boundary before running
 any Docker services.
+See `docs/persistence.md` for the SQLAlchemy/Alembic persistence boundary and
+local PostgreSQL migration proof.
 
 For direct Python use:
 
