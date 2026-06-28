@@ -15,6 +15,10 @@ OpenAI-compatible adapter. The first approved local model is
 ```bash
 MODEL_ID=mlx-community/Qwen3-0.6B-8bit \
 VLLM_MLX_PORT=28100 \
+VLLM_MLX_MAX_TOKENS=512 \
+VLLM_MLX_MAX_REQUEST_TOKENS=1024 \
+VLLM_MLX_REASONING_PARSER=qwen3 \
+VLLM_MLX_DEFAULT_CHAT_TEMPLATE_KWARGS='{"enable_thinking": false}' \
 scripts/run-vllm-mlx-backend.sh
 ```
 

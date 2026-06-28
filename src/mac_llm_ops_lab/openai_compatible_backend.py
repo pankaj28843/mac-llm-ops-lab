@@ -138,8 +138,7 @@ def _extract_completion_content(payload: dict[str, Any]) -> str:
     message = first_choice.get("message", {})
     if not isinstance(message, dict):
         return ""
-    content = message.get("content", "")
-    return content if isinstance(content, str) else ""
+    return _first_text_value(message, "content", "reasoning_content")
 
 
 def _extract_sse_content(line: str) -> str:
@@ -161,5 +160,12 @@ def _extract_sse_content(line: str) -> str:
     delta = first_choice.get("delta", {})
     if not isinstance(delta, dict):
         return ""
-    content = delta.get("content", "")
-    return content if isinstance(content, str) else ""
+    return _first_text_value(delta, "content", "reasoning_content")
+
+
+def _first_text_value(payload: Mapping[str, Any], *names: str) -> str:
+    for name in names:
+        value = payload.get(name, "")
+        if isinstance(value, str) and value:
+            return value
+    return ""

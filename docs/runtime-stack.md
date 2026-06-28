@@ -113,8 +113,10 @@ HF_HOME="$PWD/model-cache/huggingface" \
   --served-model-name mlx-qwen3-0.6b-8bit \
   --host 127.0.0.1 \
   --port 28100 \
-  --max-request-tokens 128 \
-  --max-tokens 64 \
+  --max-request-tokens 1024 \
+  --max-tokens 512 \
+  --reasoning-parser qwen3 \
+  --default-chat-template-kwargs '{"enable_thinking": false}' \
   --max-num-seqs 2 \
   --cache-memory-mb 512 \
   --continuous-batching \
@@ -133,6 +135,13 @@ The proof includes install/import/version output for `vllm-mlx` 0.3.0 and MLX
 `model-cache/`, a preflight under the 24 GiB local ceiling, model download,
 `/v1/models`, non-streaming chat, streaming chat, and `/metrics`. The native
 server was stopped after the smoke to free local memory.
+
+The first tiny Open WebUI native proof used only 64 output tokens and showed a
+reasoning-only Qwen3 answer. Current native Open WebUI runs should use the
+512/1024 defaults from `scripts/run-vllm-mlx-backend.sh`, keep
+`{"enable_thinking": false}` for the default Qwen3 operator demo, and must
+prove that a normal prompt returns visible final-answer text instead of ending
+at `finish_reason=length`.
 
 ## Model-Backed Project API Smoke
 
@@ -274,10 +283,11 @@ API and backend logs showing `/v1/chat/completions`, API metrics showing token
 generation, and Phoenix spans after the saved watermark for successful
 `POST /v1/chat/completions`, `gen_ai.stream`, and `gen_ai.chat`.
 
-Known caveats: Open WebUI background generation triggered one native
-`/v1/chat/completions` 502 after the successful foreground chat, and the
-64-token Qwen3 smoke rendered little visible final-answer text. Treat this as
-connectivity and trace proof, not as a UX quality or performance benchmark.
+Known caveat: Open WebUI background generation triggered one native
+`/v1/chat/completions` 502 after the successful foreground chat. The earlier
+64-token Qwen3 proof is now treated as a discovered failure mode, not as a UX
+quality proof; current native Open WebUI proof requires visible final-answer
+text and a non-`length` finish reason.
 
 ## Still Not Complete
 

@@ -107,3 +107,76 @@ async def test_openai_compatible_backend_streams_openai_sse_chunks() -> None:
         await backend.close()
 
     assert chunks == ["real ", "stream"]
+
+
+@pytest.mark.anyio
+async def test_openai_compatible_backend_streams_reasoning_content_fallback() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        assert request.url.path == "/v1/chat/completions"
+        return httpx.Response(
+            200,
+            content=(
+                b'data: {"choices":[{"delta":{"reasoning_content":"visible "}}]}\n\n'
+                b'data: {"choices":[{"delta":{"reasoning_content":"answer"}}]}\n\n'
+                b"data: [DONE]\n\n"
+            ),
+            headers={"content-type": "text/event-stream"},
+        )
+
+    backend = OpenAICompatibleBackend(
+        base_url="http://backend.test/v1",
+        client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+
+    await backend.load()
+    try:
+        chunks = [
+            chunk
+            async for chunk in backend.stream(
+                "hello stream",
+                model="mlx-community/Qwen3-0.6B-8bit",
+            )
+        ]
+    finally:
+        await backend.close()
+
+    assert chunks == ["visible ", "answer"]
+
+
+@pytest.mark.anyio
+async def test_openai_backend_uses_reasoning_content_when_content_is_empty() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        assert request.url.path == "/v1/chat/completions"
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "",
+                            "reasoning_content": "visible fallback",
+                        }
+                    }
+                ]
+            },
+        )
+
+    backend = OpenAICompatibleBackend(
+        base_url="http://backend.test/v1",
+        client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+
+    await backend.load()
+    try:
+        assert (
+            await backend.generate(
+                "hello",
+                model="mlx-community/Qwen3-0.6B-8bit",
+            )
+            == "visible fallback"
+        )
+    finally:
+        await backend.close()

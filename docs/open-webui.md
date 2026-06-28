@@ -84,6 +84,12 @@ returns OpenAI-style model records, returns non-streaming `usage`, and forwards
 standard generation parameters to an OpenAI-compatible native backend such as
 `vllm-mlx`.
 
+`vllm-mlx` with Qwen3 reasoning parsing may stream answer text under
+`delta.reasoning_content` even when the configured chat template disables
+thinking. The project API maps `reasoning_content` to `content` when the normal
+OpenAI `content` field is absent or empty, so Open WebUI receives visible
+assistant text instead of an empty streamed message.
+
 ## Runtime Proof
 
 Open WebUI workflow integration is complete for the Docker Compose fake-backend
@@ -141,11 +147,43 @@ The native proof shows:
   200, `gen_ai.stream`, `gen_ai.chat`, scheduler dispatch, and model/token
   attributes for `mlx-community/Qwen3-0.6B-8bit`.
 
-Known caveats from the proof:
+That original proof also exposed a bad operator experience: the backend was
+started with a 64-token generation cap, Qwen3 spent the whole budget inside its
+thinking preamble, and Open WebUI showed a completed thought panel without the
+requested answer. That is not an acceptable UX proof.
 
-- Open WebUI background generation triggered one `/v1/chat/completions` 502
-  after the successful foreground chat. The error is captured in metrics and
-  Phoenix as `backend_generation_failed`.
-- The tiny Qwen3 run is capped at 64 output tokens, so Open WebUI rendered a
-  completed reasoning block with little visible final-answer text. Do not use
-  this smoke as a UX quality or performance benchmark.
+Current native Open WebUI runs must use enough backend budget for a visible
+final answer:
+
+```bash
+VLLM_MLX_MAX_TOKENS=512 \
+VLLM_MLX_MAX_REQUEST_TOKENS=1024 \
+VLLM_MLX_REASONING_PARSER=qwen3 \
+VLLM_MLX_DEFAULT_CHAT_TEMPLATE_KWARGS='{"enable_thinking": false}' \
+scripts/run-vllm-mlx-backend.sh
+```
+
+The acceptance check is direct and browser-visible: a code-generation prompt
+through `http://127.0.0.1:23001` must render a visible final answer, the project
+API streaming response must include non-empty `delta.content` chunks, and the
+direct backend/API response for the same prompt must show that `finish_reason` is not `length`.
+For the default Qwen3 smoke, `VLLM_MLX_DEFAULT_CHAT_TEMPLATE_KWARGS='{"enable_thinking": false}'`
+keeps the demo answer-first; `VLLM_MLX_REASONING_PARSER=qwen3` preserves a
+safe override path when thinking mode is explicitly enabled for reasoning
+experiments. A reasoning block may appear for Qwen3 only when the requested
+answer follows it.
+
+Known caveat from the original proof: Open WebUI background generation
+triggered one `/v1/chat/completions` 502 after the successful foreground chat.
+The error is captured in metrics and Phoenix as `backend_generation_failed`.
+
+The visible-answer regression fix is proven under:
+
+```text
+artifacts/runtime/2026-06-28T195945+0200-open-webui-visible-answer-no-think/
+```
+
+That bundle captures the failed pre-fix symptom, the corrected API streaming
+response with non-empty `delta.content` chunks, the persisted Open WebUI chat
+record with a completed assistant message, and headed-CDP screenshot evidence
+showing the sticky-header answer rendered with CSS/JavaScript code.

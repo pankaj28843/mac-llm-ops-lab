@@ -1,4 +1,5 @@
 import json
+import re
 from collections.abc import AsyncIterator
 from pathlib import Path
 
@@ -163,6 +164,20 @@ def test_openai_compatible_backend_forwards_open_webui_generation_options() -> N
     ]
 
 
+def test_native_open_webui_launch_defaults_have_visible_answer_budget() -> None:
+    script = Path("scripts/run-vllm-mlx-backend.sh").read_text(encoding="utf-8")
+
+    max_tokens_default = _shell_default(script, "VLLM_MLX_MAX_TOKENS")
+    max_request_tokens_default = _shell_default(script, "VLLM_MLX_MAX_REQUEST_TOKENS")
+
+    assert max_tokens_default >= 512
+    assert max_request_tokens_default >= 1024
+    assert "--default-chat-template-kwargs" in script
+    assert '{"enable_thinking": false}' in script
+    assert "--reasoning-parser" in script
+    assert "qwen3" in script
+
+
 def test_open_webui_docs_describe_compose_and_host_connection_contract() -> None:
     docs_path = Path("docs/open-webui.md")
 
@@ -189,7 +204,21 @@ def test_open_webui_docs_describe_compose_and_host_connection_contract() -> None
         "Do not commit real provider keys",
         "artifacts/runtime/2026-06-28T163030+0200-open-webui/",
         "artifacts/runtime/2026-06-28T174936+0200-open-webui-native-backend/",
-        "Open WebUI background generation triggered one",
-        "64 output tokens",
+        "visible final answer",
+        "`finish_reason` is not `length`",
+        "VLLM_MLX_MAX_TOKENS=512",
+        "VLLM_MLX_DEFAULT_CHAT_TEMPLATE_KWARGS='{\"enable_thinking\": false}'",
+        "VLLM_MLX_REASONING_PARSER=qwen3",
+        "`delta.reasoning_content`",
+        "non-empty `delta.content` chunks",
+        "artifacts/runtime/2026-06-28T195945+0200-open-webui-visible-answer-no-think/",
     ):
         assert required in text
+
+    assert "little visible final-answer text" not in text
+
+
+def _shell_default(script: str, name: str) -> int:
+    match = re.search(rf"\$\{{{name}:-(\d+)}}", script)
+    assert match is not None
+    return int(match.group(1))
