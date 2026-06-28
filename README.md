@@ -46,9 +46,11 @@ JSON beside the execution record.
 static macOS-local topology for the next runtime work. It declares the API,
 PostgreSQL, Phoenix, Open WebUI, and a gated native Apple Silicon backend path
 without starting containers, requiring secrets, or downloading models. This is
-not yet a runnable Compose stack; `compose.yaml`, PostgreSQL migrations,
-Phoenix trace export, Open WebUI smoke evidence, and real-model backend proof
-are still pending.
+now mirrored by `compose.yaml`, which can be statically validated with
+`docker compose config --format json`. The Compose file is not yet runtime
+proof: PostgreSQL migrations, Phoenix trace export, Open WebUI smoke evidence,
+and real-model backend proof are still pending. Local secret files belong under
+ignored `secrets/` paths and must not be committed.
 
 For direct Python use:
 

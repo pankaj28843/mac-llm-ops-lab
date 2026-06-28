@@ -1,0 +1,71 @@
+name: mac-llm-ops-lab
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: llm_serving
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_USER: llm_serving
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5432:5432"
+    secrets:
+      - source: postgres_password
+        target: postgres_password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PHOENIX_SQL_DATABASE_URL: postgresql://llm_serving:${POSTGRES_PASSWORD:-local-placeholder}@postgres:5432/llm_serving
+    ports:
+      - "6006:6006"
+      - "4317:4317"
+      - "9090:9090"
+
+  api:
+    build:
+      context: .
+    image: mac-llm-ops-lab-api:local
+    depends_on:
+      phoenix:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://llm_serving:${POSTGRES_PASSWORD:-local-placeholder}@postgres:5432/llm_serving
+      PHOENIX_COLLECTOR_ENDPOINT: http://phoenix:6006/v1/traces
+    ports:
+      - "8000:8000"
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    depends_on:
+      api:
+        condition: service_started
+    environment:
+      ENABLE_PERSISTENT_CONFIG: "False"
+      OPENAI_API_BASE_URLS: http://api:8000/v1
+      OPENAI_API_KEYS: local-dev-placeholder
+      WEBUI_AUTH: "False"
+    ports:
+      - "3000:8080"
+    volumes:
+      - open-webui-data:/app/backend/data
+
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+
+volumes:
+  open-webui-data:
+  postgres-data:

@@ -121,6 +121,7 @@ def test_runtime_publish_sensitive_paths_are_covered_by_gitignore() -> None:
         "traces/",
         "model-cache/",
         "models/",
+        "secrets/",
         "*.sqlite*",
         "*.log",
     )
@@ -132,6 +133,7 @@ def test_runtime_publish_sensitive_paths_are_covered_by_gitignore() -> None:
         "artifacts/",
         "benchmarks/raw/",
         "models/",
+        "secrets/",
         "*.sqlite*",
         "*.log",
     )

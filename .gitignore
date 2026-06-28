@@ -21,5 +21,6 @@ benchmarks/raw/
 traces/
 model-cache/
 models/
+secrets/
 *.sqlite*
 *.log

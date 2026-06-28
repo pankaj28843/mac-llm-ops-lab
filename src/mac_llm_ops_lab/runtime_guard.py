@@ -11,6 +11,7 @@ REQUIRED_RUNTIME_IGNORE_PATTERNS = (
     "traces/",
     "model-cache/",
     "models/",
+    "secrets/",
     "*.sqlite*",
     "*.log",
 )
