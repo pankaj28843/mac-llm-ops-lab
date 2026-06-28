@@ -135,6 +135,27 @@ def build_runtime_evidence_bundle_index(
     }
 
 
+def write_runtime_evidence_bundle_index(
+    *,
+    execution_record: Mapping[str, object],
+    evidence_files: Mapping[str, str],
+    output_root: Path,
+) -> Path:
+    bundle_index = build_runtime_evidence_bundle_index(
+        execution_record=execution_record,
+        evidence_files=evidence_files,
+    )
+    artifact_dir = str(bundle_index["artifact_dir"])
+    output_dir = output_root / artifact_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "evidence-bundle.json"
+    output_path.write_text(
+        json.dumps(bundle_index, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return output_path
+
+
 def _canonical_runtime_execution_record(
     record: Mapping[str, object],
 ) -> dict[str, object]:

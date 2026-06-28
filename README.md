@@ -39,7 +39,8 @@ future runtime evidence bundles, then loaded back with the same validation
 before downstream proof consumes them.
 Evidence bundles can be indexed deterministically so logs, execution records,
 request samples, metrics, traces, and benchmark files remain under the same
-validated artifact directory.
+validated artifact directory. The bundle index can also be persisted as sorted
+JSON beside the execution record.
 
 For direct Python use:
 
