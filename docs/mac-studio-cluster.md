@@ -117,6 +117,43 @@ proof. In short: node evidence capture does not complete real multi-node proof.
 Cluster readiness still requires at least two Apple Silicon nodes with routing,
 rollback, Phoenix/OpenTelemetry, benchmark, and publish-safety evidence.
 
+## macOS Service Manifests
+
+`macos-launchd-service-bundle/v1` is the generate only service-supervision
+shape for future Mac Studio nodes. It writes launchd plist files for the native
+`vllm-mlx` backend and the model-backed API plus a `launchd-manifest.json` under
+ignored `artifacts/runtime/`. It does not install or load those services.
+
+Generate the plists from the repo root:
+
+```bash
+python -m mac_llm_ops_lab.macos_services generate \
+  --repo-dir "$PWD" \
+  --artifact-dir artifacts/runtime/example-launchd \
+  --model-id mlx-community/Qwen3-0.6B-8bit \
+  --backend-port 28100 \
+  --api-port 28020 \
+  --phoenix-port 26006
+```
+
+For a node where the approved model is already intentionally allowed by the
+operator, add `--model-download-approved` so the backend plist exports
+`MAC_LLM_OPS_MODEL_DOWNLOAD_APPROVED=true`.
+
+Lint before any manual installation:
+
+```bash
+plutil -lint artifacts/runtime/example-launchd/dev.mac_llm_ops.vllm-mlx.plist
+plutil -lint artifacts/runtime/example-launchd/dev.mac_llm_ops.api.plist
+```
+
+The generated plists use direct `ProgramArguments` for
+`scripts/run-vllm-mlx-backend.sh` and `scripts/run-model-backed-api.sh`,
+absolute working directories, high local ports in the `20000-50000` range,
+OpenTelemetry export to Phoenix, and stdout/stderr logs under the runtime
+artifact directory. Installing, loading, unloading, or enabling the plists is a
+manual operator step because it mutates per-user macOS launchd state.
+
 ## Planned Shape
 
 The likely first cluster shape is a private Mac Studio LAN where each node runs
