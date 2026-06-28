@@ -16,6 +16,7 @@ class InMemoryMetrics:
         default_factory=dict
     )
     stream_errors_total: dict[str, int] = field(default_factory=dict)
+    stream_cancellations_total: dict[str, int] = field(default_factory=dict)
 
     def record_request(
         self, *, route: str, method: str, status_code: int, duration_ms: float
@@ -49,6 +50,11 @@ class InMemoryMetrics:
 
     def record_stream_error(self, *, model: str) -> None:
         self.stream_errors_total[model] = self.stream_errors_total.get(model, 0) + 1
+
+    def record_stream_cancellation(self, *, model: str) -> None:
+        self.stream_cancellations_total[model] = (
+            self.stream_cancellations_total.get(model, 0) + 1
+        )
 
     def snapshot(self) -> dict[str, list[dict[str, object]]]:
         return {
@@ -96,5 +102,9 @@ class InMemoryMetrics:
             "stream_errors_total": [
                 {"model": model, "count": count}
                 for model, count in self.stream_errors_total.items()
+            ],
+            "stream_cancellations_total": [
+                {"model": model, "count": count}
+                for model, count in self.stream_cancellations_total.items()
             ],
         }

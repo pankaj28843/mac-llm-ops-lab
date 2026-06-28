@@ -59,6 +59,8 @@ The app records bounded labels and counters instead:
 - `gen_ai.operation.name`, `gen_ai.provider.name`, `gen_ai.request.model`
 - `gen_ai.response.model`, `gen_ai.usage.input_tokens`,
   `gen_ai.usage.output_tokens`
+- `mac_llm_ops.stream.cancelled` and `gen_ai.response.finish_reasons=("cancelled",)`
+  for client-cancelled streaming responses
 - `error.type` for low-cardinality failure classes
 - `db.system.name`, `db.operation.name`, `db.transaction.outcome`
 
@@ -78,7 +80,7 @@ Runtime proof must save a publish-safe artifact bundle under
 
 - API request samples for success, streaming, and error paths
 - a Phoenix trace export or query artifact showing HTTP, scheduler, backend,
-  token, stream/error, and database spans where exercised
+  token, stream/error/cancellation, and database spans where exercised
 - a text check proving raw prompts, completions, secrets, and machine-local
   paths are absent from saved trace artifacts
 

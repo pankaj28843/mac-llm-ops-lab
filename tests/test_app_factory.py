@@ -268,6 +268,31 @@ def test_closing_streaming_events_closes_backend_stream() -> None:
     assert backend.stream_closed == 1
 
 
+def test_closing_streaming_events_records_cancellation_without_error_metric() -> None:
+    backend = FakeBackend()
+    metrics = InMemoryMetrics()
+
+    async def consume_one_content_chunk_then_close() -> None:
+        events = _stream_events(
+            backend,
+            prompt="hello",
+            model="fake-local-model",
+            metrics=metrics,
+        )
+        await anext(events)
+        await anext(events)
+        await events.aclose()
+
+    asyncio.run(consume_one_content_chunk_then_close())
+
+    assert backend.stream_closed == 1
+    snapshot = metrics.snapshot()
+    assert snapshot["stream_cancellations_total"] == [
+        {"model": "fake-local-model", "count": 1}
+    ]
+    assert snapshot["stream_errors_total"] == []
+
+
 def test_streaming_backend_failures_emit_sanitized_error_chunk() -> None:
     backend = FakeBackend(stream_error=RuntimeError("raw stream failure"))
 
@@ -472,6 +497,7 @@ def test_metrics_snapshot_uses_bounded_labels_without_prompt_text() -> None:
         "http_errors_total": [],
         "backend_generation_errors_total": [],
         "stream_errors_total": [],
+        "stream_cancellations_total": [],
     }
     assert "secret prompt" not in metrics_response.text
 

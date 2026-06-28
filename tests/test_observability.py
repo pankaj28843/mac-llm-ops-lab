@@ -4,7 +4,7 @@ from collections.abc import AsyncIterator, Mapping
 import pytest
 from fastapi.testclient import TestClient
 
-from mac_llm_ops_lab.app import create_app
+from mac_llm_ops_lab.app import _stream_events, create_app
 from mac_llm_ops_lab.config import Settings, load_settings
 from mac_llm_ops_lab.observability import (
     InMemorySpanRecorder,
@@ -248,6 +248,37 @@ def test_streaming_request_exports_token_and_error_safe_span() -> None:
     assert stream_span.attributes["error.type"] == "backend_stream_failed"
     assert "secret prompt" not in _span_text(recorder.get_finished_spans())
     assert "raw stream failure" not in _span_text(recorder.get_finished_spans())
+
+
+@pytest.mark.anyio
+async def test_streaming_cancellation_exports_cancelled_span_without_error() -> None:
+    settings = _otel_settings()
+    recorder = InMemorySpanRecorder()
+    observability = configure_observability(settings, span_exporter=recorder)
+    events = _stream_events(
+        FakeBackend(),
+        prompt="secret prompt",
+        model="fake-local-model",
+        observability=observability,
+        request_id="req-cancel",
+        backend_kind="openai-compatible",
+    )
+
+    await anext(events)
+    await anext(events)
+    await events.aclose()
+
+    stream_span = _span_by_name(
+        recorder.get_finished_spans(),
+        "gen_ai.stream fake-local-model",
+    )
+
+    assert stream_span.attributes["mac_llm_ops.request.id"] == "req-cancel"
+    assert stream_span.attributes["mac_llm_ops.backend.kind"] == "openai-compatible"
+    assert stream_span.attributes["mac_llm_ops.stream.cancelled"] is True
+    assert stream_span.attributes["gen_ai.response.finish_reasons"] == ("cancelled",)
+    assert "error.type" not in stream_span.attributes
+    assert "secret prompt" not in _span_text(recorder.get_finished_spans())
 
 
 @pytest.mark.anyio

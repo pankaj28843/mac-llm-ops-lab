@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import time
@@ -459,13 +460,13 @@ async def _stream_events(
             else nullcontext(NoopSpan())
         )
         with stream_span as span:
-            yield _sse_event(
-                model=model,
-                delta={"role": "assistant"},
-                finish_reason=None,
-            )
             output_tokens = 0
             try:
+                yield _sse_event(
+                    model=model,
+                    delta={"role": "assistant"},
+                    finish_reason=None,
+                )
                 async for chunk in backend.stream(prompt, model, options=options):
                     output_tokens += safe_token_count(chunk)
                     yield _sse_event(
@@ -473,6 +474,14 @@ async def _stream_events(
                         delta={"content": chunk},
                         finish_reason=None,
                     )
+            except (asyncio.CancelledError, GeneratorExit):
+                span.set_attribute("gen_ai.usage.output_tokens", output_tokens)
+                span.set_attribute("gen_ai.response.model", model)
+                span.set_attribute("gen_ai.response.finish_reasons", ("cancelled",))
+                span.set_attribute("mac_llm_ops.stream.cancelled", True)
+                if metrics is not None:
+                    metrics.record_stream_cancellation(model=model)
+                raise
             except Exception:
                 span.set_attribute("gen_ai.usage.output_tokens", output_tokens)
                 span.set_attribute("gen_ai.response.model", model)

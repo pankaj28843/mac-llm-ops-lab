@@ -15,6 +15,8 @@ def test_observability_docs_describe_phoenix_and_prompt_safety() -> None:
         "http://phoenix:6006/v1/traces",
         "gen_ai.usage.input_tokens",
         "gen_ai.usage.output_tokens",
+        "mac_llm_ops.stream.cancelled",
+        'gen_ai.response.finish_reasons=("cancelled",)',
         "db.transaction.outcome",
         "does not capture prompts",
         "artifacts/runtime/2026-06-28T160713+0200-phoenix-otel/",
