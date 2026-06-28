@@ -146,6 +146,35 @@ rows are `validated:false` under the 64-token cap, so this evidence is not a
 quality benchmark, production performance claim, UX proof, or Mac Studio
 capacity claim.
 
+## MacBook To Mac Studio Boundary
+
+Measured on this MacBook Pro means the result is a local development baseline
+only. Do not extrapolate the numbers above into Mac Studio cluster throughput,
+cluster latency, capacity planning, failover behavior, queue depth targets, or
+Open WebUI multi-user UX claims.
+These are unsupported claims until Mac Studio evidence exists.
+
+Mac Studio required evidence before any cluster claim:
+
+- Node count, chip generation, unified memory, macOS version, and thermal or
+  power mode for each Mac Studio.
+- network topology, service discovery, routing policy, health/readiness policy,
+  retry policy, and rollback behavior.
+- The same model id, same model revision, same quantization, same benchmark
+  workload policy, and the same benchmark artifact manifest schema used for the
+  MacBook baseline.
+  In short: use the same benchmark workload policy.
+- Raw benchmark rows, summarized JSON, API/backend logs, Metal memory/cache
+  metrics, Phoenix spans, publish-safety scan, and no-leak manifest for every
+  node and for the routed cluster endpoint.
+- Explicit separation between single-node latency/throughput, routed-cluster
+  aggregate throughput, failover behavior, and Open WebUI UX behavior.
+
+Until that evidence exists, supported claims are limited to: this MacBook can
+run the approved small MLX model, serve through the native backend and project
+API on high local ports, emit telemetry, and produce a structurally valid local
+benchmark bundle with caveats.
+
 ## Boundaries
 
 This contract does not prove a fuller production benchmark. The one-row

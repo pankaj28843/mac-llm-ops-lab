@@ -565,3 +565,28 @@ def test_backend_contract_docs_define_representative_benchmark_policy() -> None:
         "20000-50000",
     ):
         assert required in text
+
+
+def test_backend_contract_docs_define_mac_studio_extrapolation_boundary() -> None:
+    text = Path("docs/backend-contracts.md").read_text(encoding="utf-8")
+
+    for required in (
+        "MacBook To Mac Studio Boundary",
+        "Do not extrapolate",
+        "Measured on this MacBook Pro",
+        "Mac Studio required evidence",
+        "node count",
+        "chip generation",
+        "unified memory",
+        "network topology",
+        "routing policy",
+        "same model revision",
+        "same benchmark workload policy",
+        "Phoenix spans",
+        "unsupported claims",
+        "cluster throughput",
+        "cluster latency",
+        "capacity planning",
+        "failover behavior",
+    ):
+        assert required in text
