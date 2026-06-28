@@ -377,6 +377,7 @@ def test_http_request_log_uses_bounded_fields_without_prompt_text(caplog) -> Non
     assert record.http_status_code == 200
     assert record.http_duration_ms >= 0
     assert record.model_id == "fake-local-model"
+    assert record.backend_id == "FakeBackend"
     assert "secret prompt" not in caplog.text
 
 

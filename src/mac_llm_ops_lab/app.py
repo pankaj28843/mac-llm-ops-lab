@@ -84,6 +84,9 @@ def create_app(*, backend: ModelBackend, settings: Settings | None = None) -> Fa
                 "http_duration_ms": duration_ms,
                 "model_id": getattr(request.state, "model_id", ""),
                 "error_code": getattr(request.state, "error_code", ""),
+                "backend_id": type(
+                    getattr(request.app.state, "backend", backend)
+                ).__name__,
             },
         )
         return response
