@@ -82,6 +82,7 @@ def create_app(*, backend: ModelBackend, settings: Settings | None = None) -> Fa
                 "http_route": route,
                 "http_status_code": response.status_code,
                 "http_duration_ms": duration_ms,
+                "model_id": getattr(request.state, "model_id", ""),
             },
         )
         return response
@@ -151,6 +152,7 @@ def create_app(*, backend: ModelBackend, settings: Settings | None = None) -> Fa
         payload: ChatCompletionRequest, request: Request
     ) -> dict[str, object] | StreamingResponse:
         active_backend: ModelBackend = request.app.state.backend
+        request.state.model_id = payload.model
         _ensure_model_allowed(payload.model, settings=app_settings)
         prompt = _last_user_message(payload.messages)
         if payload.stream:
