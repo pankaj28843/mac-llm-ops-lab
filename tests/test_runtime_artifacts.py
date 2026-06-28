@@ -5,6 +5,7 @@ import pytest
 from mac_llm_ops_lab.runtime_artifacts import (
     build_runtime_evidence_manifest,
     build_runtime_execution_record,
+    load_runtime_execution_record,
     write_runtime_execution_record,
 )
 from mac_llm_ops_lab.runtime_guard import (
@@ -419,3 +420,48 @@ def test_write_runtime_execution_record_rejects_tampered_top_level_state(
             {**record, "reason_code": "runtime_preflight_passed"},
             output_root=tmp_path,
         )
+
+
+def test_load_runtime_execution_record_round_trips_and_validates_json(
+    tmp_path,
+) -> None:
+    preflight_report = build_runtime_preflight_report(
+        RuntimePreflightPlan(
+            backend_id="fake-batched-backend",
+            model_id="fake-local-model",
+            explicitly_authorized=False,
+            model_weights_gib=1.0,
+            kv_cache_gib=1.0,
+            runtime_overhead_gib=1.0,
+            service_overhead_gib=1.0,
+        )
+    )
+    manifest = build_runtime_evidence_manifest(
+        git_sha="bce02cc",
+        command=("uv", "run", "python", "-m", "mac_llm_ops_lab.cli"),
+        artifact_dir="artifacts/runtime/bce02cc-fake-smoke",
+        log_path="artifacts/runtime/bce02cc-fake-smoke/service.log",
+        host={"os": "macOS", "chip": "Apple Silicon", "memory_gib": 24},
+        backend_id="fake-batched-backend",
+        model_id="fake-local-model",
+        runtime_config={"quantization": "none"},
+        ports={"api": 8000},
+    )
+    record = build_runtime_execution_record(
+        preflight_report=preflight_report,
+        evidence_manifest=manifest,
+    )
+    output_path = write_runtime_execution_record(record, output_root=tmp_path)
+
+    assert load_runtime_execution_record(output_path) == record
+
+    output_path.write_text("[]\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="JSON object"):
+        load_runtime_execution_record(output_path)
+
+    output_path.write_text(
+        json.dumps({**record, "can_execute": True}),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="can_execute"):
+        load_runtime_execution_record(output_path)
