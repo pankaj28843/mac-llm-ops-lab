@@ -19,6 +19,9 @@ def test_runtime_stack_docs_define_static_and_runtime_boundaries() -> None:
         "Open WebUI",
         "vllm-mlx standalone smoke",
         "artifacts/runtime/2026-06-28T151600+0200-vllm-mlx/",
+        "Model-Backed Project API Smoke",
+        "artifacts/runtime/2026-06-28T153000+0200-model-backed-api-e2e/",
+        "MAC_LLM_OPS_BACKEND_KIND=openai-compatible",
         "Apple Silicon backend",
         "not complete",
     ):

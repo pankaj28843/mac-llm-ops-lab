@@ -35,6 +35,13 @@ def test_compose_yaml_is_valid_and_keeps_real_backend_native_gated() -> None:
     assert {"api", "postgres", "phoenix", "open-webui"} <= set(services)
     assert "apple-silicon-backend" not in services
 
+    api = services["api"]
+    assert api["environment"]["MAC_LLM_OPS_BACKEND_KIND"] == "fake"
+    assert api["environment"]["MAC_LLM_OPS_OPENAI_BASE_URL"] == (
+        "http://host.docker.internal:8100/v1"
+    )
+    assert api["environment"]["MAC_LLM_OPS_OPENAI_TIMEOUT_SECONDS"] == "30"
+
     postgres = services["postgres"]
     assert postgres["image"] == "postgres:16"
     assert postgres["environment"]["POSTGRES_PASSWORD_FILE"] == (

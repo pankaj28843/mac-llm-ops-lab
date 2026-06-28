@@ -78,6 +78,14 @@ def test_local_runtime_stack_plan_declares_real_services_without_side_effects() 
         "8000",
     ]
     assert api["ports"] == {"api": 8000}
+    assert api["environment"] == {
+        "MAC_LLM_OPS_BACKEND_KIND": "${MAC_LLM_OPS_BACKEND_KIND:-fake}",
+        "MAC_LLM_OPS_OPENAI_BASE_URL": (
+            "${MAC_LLM_OPS_OPENAI_BASE_URL:-http://host.docker.internal:8100/v1}"
+        ),
+        "MAC_LLM_OPS_OPENAI_TIMEOUT_SECONDS": "${MAC_LLM_OPS_OPENAI_TIMEOUT_SECONDS:-30}",
+        "MAC_LLM_OPS_MODEL_ALLOWLIST": "${MAC_LLM_OPS_MODEL_ALLOWLIST:-}",
+    }
     assert api["depends_on"] == {
         "phoenix": {"condition": "service_started"},
         "postgres": {"condition": "service_healthy"},

@@ -13,11 +13,14 @@ The repo currently has:
 - tests that validate the Compose file with `docker compose config`
 - one local E2E proof run of the Docker-built fake-backend API stack
 - one `vllm-mlx` standalone smoke with a downloaded MLX model
+- one model-backed project API smoke, where this repo's FastAPI app proxied to
+  the native `vllm-mlx` server through the OpenAI-compatible backend adapter
 
 The Apple Silicon backend is intentionally native and gated. It is not a
-Compose service yet. The first candidate is `vllm-mlx`, but it must pass model
-download, memory preflight, install/import/version, streaming, telemetry, and
-benchmark gates before it can be treated as a runtime backend.
+Compose service yet. The API can be switched from the fake backend to a native
+host OpenAI-compatible backend with `MAC_LLM_OPS_BACKEND_KIND=openai-compatible`. The
+first candidate is `vllm-mlx`, but it still needs cancellation, Phoenix trace,
+and benchmark gates before the backend slice is complete.
 
 ## Safe Static Checks
 
@@ -105,6 +108,41 @@ The proof includes install/import/version output for `vllm-mlx` 0.3.0 and MLX
 `/v1/models`, non-streaming chat, streaming chat, and `/metrics`. The native
 server was stopped after the smoke to free local memory.
 
+## Model-Backed Project API Smoke
+
+The project API now has an OpenAI-compatible backend adapter and an env-driven
+backend switch. With the downloaded MLX model available under ignored
+`model-cache/`, this native backend command starts the local model server:
+
+```bash
+MODEL_ID=mlx-community/Qwen3-0.6B-8bit scripts/run-vllm-mlx-backend.sh
+```
+
+In a second shell, start this repo's API against that backend:
+
+```bash
+MODEL_ID=mlx-community/Qwen3-0.6B-8bit \
+MAC_LLM_OPS_BACKEND_KIND=openai-compatible \
+MAC_LLM_OPS_OPENAI_BASE_URL=http://127.0.0.1:8100/v1 \
+API_PORT=8020 \
+scripts/run-model-backed-api.sh
+```
+
+The saved evidence bundle is under:
+
+```text
+artifacts/runtime/2026-06-28T153000+0200-model-backed-api-e2e/
+```
+
+The proof used `vllm-mlx` on `127.0.0.1:8100` and this repo's FastAPI app on
+`127.0.0.1:8020` because local ports `8000` and `8010` were already occupied.
+It includes project API `GET /live`, `GET /ready`, `GET /v1/models`,
+non-streaming `POST /v1/chat/completions`, streaming
+`POST /v1/chat/completions`, project API `GET /metrics/snapshot`, and the
+backend `/metrics` head. The API adapter path is now code-backed and tested;
+Open WebUI workflow, Phoenix trace export, cancellation, and benchmark proof
+remain separate gates.
+
 ## Still Not Complete
 
 The local E2E proof is intentionally narrower than production readiness. These
@@ -116,7 +154,6 @@ claims are not complete yet:
 - Open WebUI model listing and chat smoke proof through its UI/API workflow
 - model-cache policy under ignored `model-cache/`
 - runtime artifacts under ignored `artifacts/runtime/`
-- project API integration for the Apple Silicon backend
 - cancellation, benchmark, and Phoenix trace proof for the real backend
 
 `secrets/`, `model-cache/`, traces, logs, raw benchmarks, database files, and

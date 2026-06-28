@@ -19,3 +19,6 @@ def test_docker_entrypoint_runtime_dependencies_are_declared() -> None:
     assert any(
         _dependency_name(dependency) == "uvicorn" for dependency in runtime_dependencies
     )
+    assert any(
+        _dependency_name(dependency) == "httpx" for dependency in runtime_dependencies
+    )

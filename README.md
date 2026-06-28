@@ -53,13 +53,32 @@ Evidence is saved under the ignored
 `artifacts/runtime/2026-06-28T145945+0200-e2e/` bundle.
 
 This is not yet full production proof: PostgreSQL migrations/persistence,
-Phoenix trace export, Open WebUI chat workflow integration, real-model Apple
-Silicon backend integration, MkDocs, cluster routing, and release/no-leak
-checks are still pending. A standalone `vllm-mlx` smoke did pass with
+Phoenix trace export, Open WebUI chat workflow integration, cancellation,
+benchmarks, MkDocs, cluster routing, and release/no-leak checks are still
+pending. A standalone `vllm-mlx` smoke did pass with
 `mlx-community/Qwen3-0.6B-8bit` on port 8100, including model download,
 `/v1/models`, chat, streaming, and `/metrics`; evidence is saved under ignored
-`artifacts/runtime/2026-06-28T151600+0200-vllm-mlx/`. Local secret files belong
-under ignored `secrets/` paths and must not be committed.
+`artifacts/runtime/2026-06-28T151600+0200-vllm-mlx/`.
+
+The project API can now proxy to that native OpenAI-compatible backend:
+
+```bash
+MODEL_ID=mlx-community/Qwen3-0.6B-8bit scripts/run-vllm-mlx-backend.sh
+```
+
+```bash
+MODEL_ID=mlx-community/Qwen3-0.6B-8bit \
+MAC_LLM_OPS_BACKEND_KIND=openai-compatible \
+MAC_LLM_OPS_OPENAI_BASE_URL=http://127.0.0.1:8100/v1 \
+API_PORT=8020 \
+scripts/run-model-backed-api.sh
+```
+
+That model-backed app/API path was probed through this repo's `/live`,
+`/ready`, `/v1/models`, non-streaming chat, streaming chat, and
+`/metrics/snapshot`; evidence is saved under ignored
+`artifacts/runtime/2026-06-28T153000+0200-model-backed-api-e2e/`. Local secret
+files belong under ignored `secrets/` paths and must not be committed.
 
 See `docs/runtime-stack.md` for the static-vs-runtime boundary before running
 any Docker services.

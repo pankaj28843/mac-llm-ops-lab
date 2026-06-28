@@ -43,6 +43,11 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://llm_serving:${POSTGRES_PASSWORD:-local-placeholder}@postgres:5432/llm_serving
+      MAC_LLM_OPS_BACKEND_KIND: ${MAC_LLM_OPS_BACKEND_KIND:-fake}
+      MAC_LLM_OPS_MODEL_ALLOWLIST: ${MAC_LLM_OPS_MODEL_ALLOWLIST:-}
+      MAC_LLM_OPS_OPENAI_API_KEY: ${MAC_LLM_OPS_OPENAI_API_KEY:-}
+      MAC_LLM_OPS_OPENAI_BASE_URL: ${MAC_LLM_OPS_OPENAI_BASE_URL:-http://host.docker.internal:8100/v1}
+      MAC_LLM_OPS_OPENAI_TIMEOUT_SECONDS: ${MAC_LLM_OPS_OPENAI_TIMEOUT_SECONDS:-30}
       PHOENIX_COLLECTOR_ENDPOINT: http://phoenix:6006/v1/traces
     ports:
       - "${API_HOST_PORT:-8000}:8000"
