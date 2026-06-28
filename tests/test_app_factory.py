@@ -331,7 +331,8 @@ def test_metrics_snapshot_uses_bounded_labels_without_prompt_text() -> None:
 
     assert generation_response.status_code == 200
     assert metrics_response.status_code == 200
-    assert metrics_response.json() == {
+    metrics_body = metrics_response.json()
+    assert metrics_body == {
         "requests_total": [
             {
                 "route": "/v1/chat/completions",
@@ -340,11 +341,55 @@ def test_metrics_snapshot_uses_bounded_labels_without_prompt_text() -> None:
                 "count": 1,
             },
         ],
+        "request_latency_ms": [
+            {
+                "route": "/v1/chat/completions",
+                "method": "POST",
+                "status_code": "200",
+                "count": 1,
+                "total_ms": metrics_body["request_latency_ms"][0]["total_ms"],
+                "max_ms": metrics_body["request_latency_ms"][0]["max_ms"],
+            },
+        ],
         "tokens_generated_total": [
             {"model": "fake-local-model", "count": 5},
         ],
         "stream_errors_total": [],
     }
+    assert "secret prompt" not in metrics_response.text
+
+
+def test_metrics_snapshot_records_bounded_request_latency_without_prompt_text() -> None:
+    backend = FakeBackend()
+    app = create_app(backend=backend)
+
+    with TestClient(app) as client:
+        generation_response = client.post(
+            "/v1/chat/completions",
+            json={
+                "model": "fake-local-model",
+                "messages": [{"role": "user", "content": "secret prompt"}],
+                "stream": False,
+            },
+        )
+        metrics_response = client.get("/metrics/snapshot")
+
+    assert generation_response.status_code == 200
+    assert metrics_response.status_code == 200
+    latency_metrics = metrics_response.json()["request_latency_ms"]
+    assert latency_metrics == [
+        {
+            "route": "/v1/chat/completions",
+            "method": "POST",
+            "status_code": "200",
+            "count": 1,
+            "total_ms": latency_metrics[0]["total_ms"],
+            "max_ms": latency_metrics[0]["max_ms"],
+        }
+    ]
+    assert latency_metrics[0]["total_ms"] >= 0
+    assert latency_metrics[0]["max_ms"] >= 0
+    assert latency_metrics[0]["max_ms"] <= latency_metrics[0]["total_ms"]
     assert "secret prompt" not in metrics_response.text
 
 

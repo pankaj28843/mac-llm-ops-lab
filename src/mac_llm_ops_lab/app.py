@@ -63,13 +63,16 @@ def create_app(*, backend: ModelBackend, settings: Settings | None = None) -> Fa
     async def request_id_middleware(request: Request, call_next):
         request_id = request.headers.get(app_settings.request_id_header) or uuid4().hex
         request.state.request_id = request_id
+        started_at = time.perf_counter()
         response = await call_next(request)
+        duration_ms = (time.perf_counter() - started_at) * 1000
         response.headers[app_settings.request_id_header] = request_id
         route = _request_route(request)
         metrics.record_request(
             route=route,
             method=request.method,
             status_code=response.status_code,
+            duration_ms=duration_ms,
         )
         HTTP_LOGGER.info(
             "http_request",
