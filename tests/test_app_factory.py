@@ -310,3 +310,37 @@ def test_http_request_log_uses_bounded_fields_without_prompt_text(caplog) -> Non
     assert record.http_route == "/v1/chat/completions"
     assert record.http_status_code == 200
     assert "secret prompt" not in caplog.text
+
+
+def test_metrics_snapshot_uses_bounded_labels_without_prompt_text() -> None:
+    backend = FakeBackend()
+    app = create_app(backend=backend)
+
+    with TestClient(app) as client:
+        generation_response = client.post(
+            "/v1/chat/completions",
+            json={
+                "model": "fake-local-model",
+                "messages": [{"role": "user", "content": "secret prompt"}],
+                "stream": False,
+            },
+        )
+        metrics_response = client.get("/metrics/snapshot")
+
+    assert generation_response.status_code == 200
+    assert metrics_response.status_code == 200
+    assert metrics_response.json() == {
+        "requests_total": [
+            {
+                "route": "/v1/chat/completions",
+                "method": "POST",
+                "status_code": "200",
+                "count": 1,
+            },
+        ],
+        "tokens_generated_total": [
+            {"model": "fake-local-model", "count": 5},
+        ],
+        "stream_errors_total": [],
+    }
+    assert "secret prompt" not in metrics_response.text

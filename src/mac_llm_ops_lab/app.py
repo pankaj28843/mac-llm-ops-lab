@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from mac_llm_ops_lab.config import Settings, load_settings
+from mac_llm_ops_lab.metrics import InMemoryMetrics
 
 HTTP_LOGGER = logging.getLogger("mac_llm_ops_lab.http")
 
@@ -43,6 +44,7 @@ class ChatCompletionRequest(BaseModel):
 
 def create_app(*, backend: ModelBackend, settings: Settings | None = None) -> FastAPI:
     app_settings = settings or load_settings()
+    metrics = InMemoryMetrics()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -55,6 +57,7 @@ def create_app(*, backend: ModelBackend, settings: Settings | None = None) -> Fa
 
     app = FastAPI(title=app_settings.service_name, lifespan=lifespan)
     app.state.settings = app_settings
+    app.state.metrics = metrics
 
     @app.middleware("http")
     async def request_id_middleware(request: Request, call_next):
@@ -62,12 +65,18 @@ def create_app(*, backend: ModelBackend, settings: Settings | None = None) -> Fa
         request.state.request_id = request_id
         response = await call_next(request)
         response.headers[app_settings.request_id_header] = request_id
+        route = _request_route(request)
+        metrics.record_request(
+            route=route,
+            method=request.method,
+            status_code=response.status_code,
+        )
         HTTP_LOGGER.info(
             "http_request",
             extra={
                 "request_id": request_id,
                 "http_method": request.method,
-                "http_route": _request_route(request),
+                "http_route": route,
                 "http_status_code": response.status_code,
             },
         )
@@ -125,6 +134,11 @@ def create_app(*, backend: ModelBackend, settings: Settings | None = None) -> Fa
             ),
         }
 
+    @app.get("/metrics/snapshot")
+    async def metrics_snapshot(request: Request) -> dict[str, list[dict[str, object]]]:
+        active_metrics: InMemoryMetrics = request.app.state.metrics
+        return active_metrics.snapshot()
+
     @app.post("/v1/chat/completions", response_model=None)
     async def chat_completions(
         payload: ChatCompletionRequest, request: Request
@@ -148,6 +162,7 @@ def create_app(*, backend: ModelBackend, settings: Settings | None = None) -> Fa
                     "message": "Backend generation failed",
                 },
             ) from exc
+        metrics.record_generated_text(model=payload.model, content=content)
         return _completion_response(model=payload.model, content=content)
 
     return app
