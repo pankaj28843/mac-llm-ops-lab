@@ -100,6 +100,31 @@ Mac Studio cluster claims require Mac Studio runs with node count, chip, memory,
 network, model, routing, and trace evidence. A MacBook benchmark can inform the
 cluster plan, but it is not cluster capacity proof.
 
+## Benchmark Artifact Manifest
+
+Every fuller benchmark bundle must include
+`benchmark-artifact-manifest.json`, generated or loaded through
+`mac_llm_ops_lab.backend_contracts`. The manifest is separate from the
+runtime evidence manifest because benchmark proof needs raw workload rows,
+summarized benchmark JSON, and a publish-safety result in one place.
+
+Required manifest fields:
+
+- `raw_benchmark_path`: the raw `vllm-mlx bench-serve` JSON rows inside the
+  same ignored `artifacts/runtime/<run>/` bundle.
+- `summary_path`: the summarized JSON report, normally
+  `backend-contract-report.json`, built from raw rows and backend metrics.
+- `git_sha`, command, model id, model revision, host chip, host memory, macOS
+  label, high local ports, and benchmark env values.
+- `no_leak_scan`: a JSON publish-safety summary inside the same artifact bundle
+  with `passed: true` and `findings_count: 0`.
+
+Malformed bundles fail validation. The manifest rejects absolute paths,
+parent-traversal paths, paths outside `artifact_dir`, non-JSON benchmark or
+summary paths, empty command/git/model/revision labels, missing host chip or
+memory labels, empty env maps, local ports outside `20000-50000`, and failed
+or nonzero no-leak scans.
+
 ## Boundaries
 
 This contract does not prove a fuller production benchmark. The one-row

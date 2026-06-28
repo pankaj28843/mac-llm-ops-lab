@@ -5,11 +5,14 @@ import pytest
 
 from mac_llm_ops_lab.backend_contracts import (
     build_backend_contract_report,
+    build_benchmark_artifact_manifest,
     build_benchmark_summary,
     build_benchmark_workload_policy,
+    load_benchmark_artifact_manifest,
     load_benchmark_rows,
     summarize_vllm_mlx_metrics,
     write_backend_contract_report,
+    write_benchmark_artifact_manifest,
 )
 
 METRICS_TEXT = "\n".join(
@@ -259,6 +262,209 @@ def test_benchmark_workload_policy_requires_metadata_metrics_and_boundaries() ->
     assert policy["local_port_range"] == {"min": 20000, "max": 50000}
 
 
+def test_benchmark_artifact_manifest_is_json_safe_and_reproducible() -> None:
+    manifest = build_benchmark_artifact_manifest(
+        git_sha="c0f033f",
+        command=(
+            "uv",
+            "tool",
+            "run",
+            "vllm-mlx",
+            "bench-serve",
+            "--url",
+            "http://127.0.0.1:28100",
+        ),
+        artifact_dir="artifacts/runtime/c0f033f-vllm-mlx-benchmark",
+        raw_benchmark_path=(
+            "artifacts/runtime/c0f033f-vllm-mlx-benchmark/bench-raw.json"
+        ),
+        summary_path=(
+            "artifacts/runtime/c0f033f-vllm-mlx-benchmark/backend-contract-report.json"
+        ),
+        model_id="mlx-community/Qwen3-0.6B-8bit",
+        model_revision="11de96878523501bcaa86104e3c186de07ff9068",
+        host={
+            "os": "macOS",
+            "chip": "M3 Max",
+            "memory_gib": 36,
+        },
+        ports={
+            "api": 28020,
+            "backend": 28100,
+            "phoenix": 26006,
+            "otlp_grpc": 24317,
+        },
+        env={
+            "MAC_LLM_OPS_BACKEND_KIND": "openai-compatible",
+            "VLLM_MLX_BENCH_PROMPTS": "conversational_sharegpt",
+            "VLLM_MLX_BENCH_REPETITIONS": "3",
+        },
+        no_leak_scan={
+            "path": (
+                "artifacts/runtime/c0f033f-vllm-mlx-benchmark/"
+                "publish-safety-summary.json"
+            ),
+            "passed": True,
+            "findings_count": 0,
+        },
+    )
+
+    assert manifest == {
+        "schema_version": "vllm-mlx-benchmark-artifact-manifest/v1",
+        "git_sha": "c0f033f",
+        "command": [
+            "uv",
+            "tool",
+            "run",
+            "vllm-mlx",
+            "bench-serve",
+            "--url",
+            "http://127.0.0.1:28100",
+        ],
+        "artifact_dir": "artifacts/runtime/c0f033f-vllm-mlx-benchmark",
+        "raw_benchmark_path": (
+            "artifacts/runtime/c0f033f-vllm-mlx-benchmark/bench-raw.json"
+        ),
+        "summary_path": (
+            "artifacts/runtime/c0f033f-vllm-mlx-benchmark/backend-contract-report.json"
+        ),
+        "model": {
+            "id": "mlx-community/Qwen3-0.6B-8bit",
+            "revision": "11de96878523501bcaa86104e3c186de07ff9068",
+        },
+        "host": {
+            "os": "macOS",
+            "chip": "M3 Max",
+            "memory_gib": 36,
+        },
+        "ports": {
+            "api": 28020,
+            "backend": 28100,
+            "phoenix": 26006,
+            "otlp_grpc": 24317,
+        },
+        "env": {
+            "MAC_LLM_OPS_BACKEND_KIND": "openai-compatible",
+            "VLLM_MLX_BENCH_PROMPTS": "conversational_sharegpt",
+            "VLLM_MLX_BENCH_REPETITIONS": "3",
+        },
+        "no_leak_scan": {
+            "path": (
+                "artifacts/runtime/c0f033f-vllm-mlx-benchmark/"
+                "publish-safety-summary.json"
+            ),
+            "passed": True,
+            "findings_count": 0,
+        },
+    }
+    assert json.loads(json.dumps(manifest, sort_keys=True)) == manifest
+
+
+def test_benchmark_artifact_manifest_rejects_malformed_bundles() -> None:
+    base_kwargs = {
+        "git_sha": "c0f033f",
+        "command": ("uv", "tool", "run", "vllm-mlx", "bench-serve"),
+        "artifact_dir": "artifacts/runtime/c0f033f-vllm-mlx-benchmark",
+        "raw_benchmark_path": (
+            "artifacts/runtime/c0f033f-vllm-mlx-benchmark/bench-raw.json"
+        ),
+        "summary_path": (
+            "artifacts/runtime/c0f033f-vllm-mlx-benchmark/backend-contract-report.json"
+        ),
+        "model_id": "mlx-community/Qwen3-0.6B-8bit",
+        "model_revision": "11de96878523501bcaa86104e3c186de07ff9068",
+        "host": {"os": "macOS", "chip": "M3 Max", "memory_gib": 36},
+        "ports": {"api": 28020, "backend": 28100},
+        "env": {"VLLM_MLX_BENCH_PROMPTS": "conversational_sharegpt"},
+        "no_leak_scan": {
+            "path": (
+                "artifacts/runtime/c0f033f-vllm-mlx-benchmark/"
+                "publish-safety-summary.json"
+            ),
+            "passed": True,
+            "findings_count": 0,
+        },
+    }
+
+    with pytest.raises(ValueError, match="raw_benchmark_path"):
+        build_benchmark_artifact_manifest(
+            **{**base_kwargs, "raw_benchmark_path": "artifacts/runtime/other/raw.json"}
+        )
+    with pytest.raises(ValueError, match="summary_path"):
+        build_benchmark_artifact_manifest(
+            **{**base_kwargs, "summary_path": "/tmp/summary.json"}
+        )
+    with pytest.raises(ValueError, match="command"):
+        build_benchmark_artifact_manifest(**{**base_kwargs, "command": ()})
+    with pytest.raises(ValueError, match="model_revision"):
+        build_benchmark_artifact_manifest(**{**base_kwargs, "model_revision": ""})
+    with pytest.raises(ValueError, match="host"):
+        build_benchmark_artifact_manifest(
+            **{**base_kwargs, "host": {"os": "macOS", "memory_gib": 36}}
+        )
+    with pytest.raises(ValueError, match="ports"):
+        build_benchmark_artifact_manifest(**{**base_kwargs, "ports": {"api": 8000}})
+    with pytest.raises(ValueError, match="env"):
+        build_benchmark_artifact_manifest(**{**base_kwargs, "env": {}})
+    with pytest.raises(ValueError, match="no_leak_scan"):
+        build_benchmark_artifact_manifest(
+            **{
+                **base_kwargs,
+                "no_leak_scan": {
+                    **base_kwargs["no_leak_scan"],
+                    "findings_count": 1,
+                },
+            }
+        )
+
+
+def test_benchmark_artifact_manifest_persists_and_loads_under_artifact_dir(
+    tmp_path: Path,
+) -> None:
+    manifest = build_benchmark_artifact_manifest(
+        git_sha="c0f033f",
+        command=("uv", "tool", "run", "vllm-mlx", "bench-serve"),
+        artifact_dir="artifacts/runtime/c0f033f-vllm-mlx-benchmark",
+        raw_benchmark_path=(
+            "artifacts/runtime/c0f033f-vllm-mlx-benchmark/bench-raw.json"
+        ),
+        summary_path=(
+            "artifacts/runtime/c0f033f-vllm-mlx-benchmark/backend-contract-report.json"
+        ),
+        model_id="mlx-community/Qwen3-0.6B-8bit",
+        model_revision="11de96878523501bcaa86104e3c186de07ff9068",
+        host={"os": "macOS", "chip": "M3 Max", "memory_gib": 36},
+        ports={"api": 28020, "backend": 28100},
+        env={"VLLM_MLX_BENCH_PROMPTS": "conversational_sharegpt"},
+        no_leak_scan={
+            "path": (
+                "artifacts/runtime/c0f033f-vllm-mlx-benchmark/"
+                "publish-safety-summary.json"
+            ),
+            "passed": True,
+            "findings_count": 0,
+        },
+    )
+
+    output_path = write_benchmark_artifact_manifest(
+        manifest,
+        output_root=tmp_path,
+    )
+
+    assert output_path == (
+        tmp_path / "artifacts/runtime/c0f033f-vllm-mlx-benchmark/"
+        "benchmark-artifact-manifest.json"
+    )
+    written_text = output_path.read_text(encoding="utf-8")
+    assert written_text.endswith("\n")
+    assert json.loads(written_text) == manifest
+    assert load_benchmark_artifact_manifest(output_path) == manifest
+
+    output_path.write_text(json.dumps({**manifest, "git_sha": ""}), encoding="utf-8")
+    with pytest.raises(ValueError, match="git_sha"):
+        load_benchmark_artifact_manifest(output_path)
+
+
 def test_load_benchmark_rows_requires_json_list(tmp_path: Path) -> None:
     path = tmp_path / "bench.json"
     path.write_text(json.dumps([BENCHMARK_ROW]), encoding="utf-8")
@@ -333,6 +539,11 @@ def test_backend_contract_docs_define_representative_benchmark_policy() -> None:
 
     for required in (
         "Benchmark Workload Policy",
+        "Benchmark Artifact Manifest",
+        "benchmark-artifact-manifest.json",
+        "raw_benchmark_path",
+        "summary_path",
+        "no_leak_scan",
         "smoke_short",
         "conversational_sharegpt",
         "prefix_repetition_cache",

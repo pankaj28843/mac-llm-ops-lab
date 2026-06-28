@@ -2,13 +2,18 @@ import argparse
 import json
 import math
 import re
-from collections.abc import Iterable, Mapping
-from pathlib import Path
+from collections.abc import Iterable, Mapping, Sequence
+from pathlib import Path, PurePosixPath
 
 VLLM_MLX_METRICS_SUMMARY_SCHEMA_VERSION = "vllm-mlx-metrics-summary/v1"
 VLLM_MLX_BENCHMARK_SUMMARY_SCHEMA_VERSION = "vllm-mlx-benchmark-summary/v1"
 VLLM_MLX_BACKEND_CONTRACT_SCHEMA_VERSION = "vllm-mlx-backend-contract/v1"
 VLLM_MLX_BENCHMARK_POLICY_SCHEMA_VERSION = "vllm-mlx-benchmark-policy/v1"
+VLLM_MLX_BENCHMARK_ARTIFACT_MANIFEST_SCHEMA_VERSION = (
+    "vllm-mlx-benchmark-artifact-manifest/v1"
+)
+LOCAL_PORT_MIN = 20000
+LOCAL_PORT_MAX = 50000
 
 _SAMPLE_PATTERN = re.compile(
     r"^(?P<name>[a-zA-Z_:][a-zA-Z0-9_:]*)(?:\{(?P<labels>[^}]*)\})?\s+"
@@ -49,6 +54,7 @@ _BENCHMARK_REQUIRED_FIELDS = (
     "tokens_saved",
     "validated",
 )
+_BENCHMARK_REQUIRED_HOST_LABELS = ("os", "chip", "memory_gib")
 
 
 def build_benchmark_workload_policy() -> dict[str, object]:
@@ -168,6 +174,77 @@ def build_benchmark_workload_policy() -> dict[str, object]:
             "chip, memory, network, model, routing, and trace evidence.",
         ],
     }
+
+
+def build_benchmark_artifact_manifest(
+    *,
+    git_sha: str,
+    command: Sequence[str],
+    artifact_dir: str,
+    raw_benchmark_path: str,
+    summary_path: str,
+    model_id: str,
+    model_revision: str,
+    host: Mapping[str, object],
+    ports: Mapping[str, object],
+    env: Mapping[str, object],
+    no_leak_scan: Mapping[str, object],
+) -> dict[str, object]:
+    normalized_artifact_dir = _validated_artifact_dir(artifact_dir)
+    return {
+        "schema_version": VLLM_MLX_BENCHMARK_ARTIFACT_MANIFEST_SCHEMA_VERSION,
+        "git_sha": _validated_non_empty_string(git_sha, field_name="git_sha"),
+        "command": _validated_command(command),
+        "artifact_dir": normalized_artifact_dir,
+        "raw_benchmark_path": _validated_json_path_in_artifact_dir(
+            raw_benchmark_path,
+            artifact_dir=normalized_artifact_dir,
+            field_name="raw_benchmark_path",
+        ),
+        "summary_path": _validated_json_path_in_artifact_dir(
+            summary_path,
+            artifact_dir=normalized_artifact_dir,
+            field_name="summary_path",
+        ),
+        "model": {
+            "id": _validated_non_empty_string(model_id, field_name="model_id"),
+            "revision": _validated_non_empty_string(
+                model_revision,
+                field_name="model_revision",
+            ),
+        },
+        "host": _validated_benchmark_host(host),
+        "ports": _validated_high_ports(ports),
+        "env": _validated_env(env),
+        "no_leak_scan": _validated_no_leak_scan(
+            no_leak_scan,
+            artifact_dir=normalized_artifact_dir,
+        ),
+    }
+
+
+def write_benchmark_artifact_manifest(
+    manifest: Mapping[str, object],
+    *,
+    output_root: Path,
+) -> Path:
+    canonical_manifest = _canonical_benchmark_artifact_manifest(manifest)
+    artifact_dir = str(canonical_manifest["artifact_dir"])
+    output_dir = output_root / artifact_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "benchmark-artifact-manifest.json"
+    output_path.write_text(
+        json.dumps(canonical_manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return output_path
+
+
+def load_benchmark_artifact_manifest(path: Path) -> dict[str, object]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, Mapping):
+        raise ValueError("benchmark artifact manifest JSON must contain an object")
+    return _canonical_benchmark_artifact_manifest(payload)
 
 
 def summarize_vllm_mlx_metrics(metrics_text: str) -> dict[str, object]:
@@ -318,6 +395,48 @@ def write_backend_contract_report(
     return report_path
 
 
+def _canonical_benchmark_artifact_manifest(
+    manifest: Mapping[str, object],
+) -> dict[str, object]:
+    if (
+        manifest.get("schema_version")
+        != VLLM_MLX_BENCHMARK_ARTIFACT_MANIFEST_SCHEMA_VERSION
+    ):
+        raise ValueError(
+            "schema_version must be "
+            f"{VLLM_MLX_BENCHMARK_ARTIFACT_MANIFEST_SCHEMA_VERSION}",
+        )
+    model = _mapping_field(manifest, "model")
+    return build_benchmark_artifact_manifest(
+        git_sha=_validated_non_empty_string(
+            manifest.get("git_sha"),
+            field_name="git_sha",
+        ),
+        command=_sequence_field(manifest, "command"),
+        artifact_dir=_validated_non_empty_string(
+            manifest.get("artifact_dir"),
+            field_name="artifact_dir",
+        ),
+        raw_benchmark_path=_validated_non_empty_string(
+            manifest.get("raw_benchmark_path"),
+            field_name="raw_benchmark_path",
+        ),
+        summary_path=_validated_non_empty_string(
+            manifest.get("summary_path"),
+            field_name="summary_path",
+        ),
+        model_id=_validated_non_empty_string(model.get("id"), field_name="model_id"),
+        model_revision=_validated_non_empty_string(
+            model.get("revision"),
+            field_name="model_revision",
+        ),
+        host=_mapping_field(manifest, "host"),
+        ports=_mapping_field(manifest, "ports"),
+        env=_mapping_field(manifest, "env"),
+        no_leak_scan=_mapping_field(manifest, "no_leak_scan"),
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Build a vllm-mlx metrics and benchmark contract report.",
@@ -369,6 +488,154 @@ def _parse_float(value: str) -> float:
     if value == "-Inf":
         return -math.inf
     return float(value)
+
+
+def _validated_non_empty_string(value: object, *, field_name: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field_name} must be non-empty")
+    return value
+
+
+def _validated_command(command: Sequence[str]) -> list[str]:
+    normalized = list(command)
+    if not normalized or any(
+        not isinstance(part, str) or not part for part in normalized
+    ):
+        raise ValueError("command must contain at least one non-empty part")
+    return normalized
+
+
+def _mapping_field(
+    source: Mapping[str, object],
+    field_name: str,
+) -> Mapping[str, object]:
+    value = source.get(field_name)
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{field_name} must be a mapping")
+    return value
+
+
+def _sequence_field(
+    source: Mapping[str, object],
+    field_name: str,
+) -> Sequence[str]:
+    value = source.get(field_name)
+    if isinstance(value, str) or not isinstance(value, Sequence):
+        raise ValueError(f"{field_name} must be a sequence")
+    return value
+
+
+def _validated_artifact_dir(artifact_dir: str) -> str:
+    path = _validated_relative_path(artifact_dir, field_name="artifact_dir")
+    if len(path.parts) < 3 or path.parts[:2] != ("artifacts", "runtime"):
+        raise ValueError("artifact_dir must be under artifacts/runtime/")
+    return path.as_posix()
+
+
+def _validated_json_path_in_artifact_dir(
+    value: str,
+    *,
+    artifact_dir: str,
+    field_name: str,
+) -> str:
+    path = _validated_relative_path(value, field_name=field_name)
+    try:
+        path.relative_to(PurePosixPath(artifact_dir))
+    except ValueError as exc:
+        raise ValueError(f"{field_name} must be inside artifact_dir") from exc
+    if path.suffix != ".json":
+        raise ValueError(f"{field_name} must point to a .json file")
+    return path.as_posix()
+
+
+def _validated_relative_path(value: str, *, field_name: str) -> PurePosixPath:
+    path = PurePosixPath(value)
+    if not value or path.is_absolute() or ".." in path.parts:
+        raise ValueError(f"{field_name} must be a relative path without traversal")
+    return path
+
+
+def _validated_benchmark_host(host: Mapping[str, object]) -> dict[str, object]:
+    normalized = _validated_non_empty_mapping(host, field_name="host")
+    missing = [key for key in _BENCHMARK_REQUIRED_HOST_LABELS if key not in normalized]
+    if missing:
+        raise ValueError(f"host is missing required labels: {', '.join(missing)}")
+    return normalized
+
+
+def _validated_non_empty_mapping(
+    value: Mapping[str, object],
+    *,
+    field_name: str,
+) -> dict[str, object]:
+    normalized = dict(value)
+    if not normalized:
+        raise ValueError(f"{field_name} must be non-empty")
+    return normalized
+
+
+def _validated_high_ports(ports: Mapping[str, object]) -> dict[str, int]:
+    normalized = _validated_non_empty_mapping(ports, field_name="ports")
+    if any(
+        not name
+        or not isinstance(port, int)
+        or isinstance(port, bool)
+        or port < LOCAL_PORT_MIN
+        or port > LOCAL_PORT_MAX
+        for name, port in normalized.items()
+    ):
+        raise ValueError(
+            f"ports must use non-empty names and values in {LOCAL_PORT_MIN}-"
+            f"{LOCAL_PORT_MAX}",
+        )
+    return dict(normalized)
+
+
+def _validated_env(env: Mapping[str, object]) -> dict[str, str]:
+    normalized = _validated_non_empty_mapping(env, field_name="env")
+    if any(
+        not isinstance(name, str)
+        or not name.strip()
+        or not isinstance(value, str)
+        or not value.strip()
+        for name, value in normalized.items()
+    ):
+        raise ValueError("env must use non-empty string names and values")
+    return dict(normalized)
+
+
+def _validated_no_leak_scan(
+    no_leak_scan: Mapping[str, object],
+    *,
+    artifact_dir: str,
+) -> dict[str, object]:
+    normalized = _validated_non_empty_mapping(
+        no_leak_scan,
+        field_name="no_leak_scan",
+    )
+    path = _validated_json_path_in_artifact_dir(
+        _validated_non_empty_string(
+            normalized.get("path"),
+            field_name="no_leak_scan.path",
+        ),
+        artifact_dir=artifact_dir,
+        field_name="no_leak_scan.path",
+    )
+    passed = normalized.get("passed")
+    findings_count = normalized.get("findings_count")
+    if passed is not True:
+        raise ValueError("no_leak_scan must have passed=true")
+    if (
+        not isinstance(findings_count, int)
+        or isinstance(findings_count, bool)
+        or findings_count != 0
+    ):
+        raise ValueError("no_leak_scan findings_count must be 0")
+    return {
+        "path": path,
+        "passed": True,
+        "findings_count": 0,
+    }
 
 
 def _sample_value(
