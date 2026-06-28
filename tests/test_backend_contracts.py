@@ -560,6 +560,8 @@ def test_backend_contract_docs_define_representative_benchmark_policy() -> None:
         "MacBook measurements are local baselines",
         "Mac Studio cluster claims require Mac Studio runs",
         "validated:false is smoke-only",
+        "2026-06-28T183228+0200-slice15-macbook-benchmark",
+        "production_performance_claim_supported: false",
         "20000-50000",
     ):
         assert required in text

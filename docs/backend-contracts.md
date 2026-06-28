@@ -125,6 +125,27 @@ summary paths, empty command/git/model/revision labels, missing host chip or
 memory labels, empty env maps, local ports outside `20000-50000`, and failed
 or nonzero no-leak scans.
 
+## Current MacBook Baseline
+
+The current local baseline bundle is ignored runtime evidence under
+`artifacts/runtime/2026-06-28T183228+0200-slice15-macbook-benchmark/`.
+It ran `mlx-community/Qwen3-0.6B-8bit` directly against the native backend on
+port `28100` with high-port project API/Phoenix/PostgreSQL/OTLP services still
+on `28020`, `26006`, `25432`, and `24317`.
+
+The bundle contains 12 benchmark rows across `conversational_sharegpt` and
+`prefix_repetition_cache`, concurrency levels 1 and 2, max tokens 64, three
+repetitions, warmup 1, runtime preflight estimate 4.7 GiB against the 24 GiB
+capsule ceiling, backend metrics before/after, `backend-contract-report.json`,
+`benchmark-artifact-manifest.json`, API trace proof through request id
+`req-slice15-benchmark-chat`, and a zero-finding publish-safety summary.
+
+The structural benchmark contract passed and a local MacBook baseline was
+recorded, but `production_performance_claim_supported: false`. All benchmark
+rows are `validated:false` under the 64-token cap, so this evidence is not a
+quality benchmark, production performance claim, UX proof, or Mac Studio
+capacity claim.
+
 ## Boundaries
 
 This contract does not prove a fuller production benchmark. The one-row
