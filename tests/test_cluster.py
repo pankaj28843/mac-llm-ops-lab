@@ -20,12 +20,14 @@ def _node(
     models: tuple[str, ...] = ("mlx-community/Qwen3-0.6B-8bit",),
     capabilities: tuple[str, ...] = ("mlx", "openai-compatible", "streaming", "otel"),
     ports: dict[str, int] | None = None,
+    api_base_url: str | None = None,
+    backend_base_url: str | None = None,
 ) -> ClusterNode:
     return ClusterNode(
         node_id=node_id,
         hostname=f"{node_id}.local",
-        api_base_url=f"http://{node_id}.local:28020/v1",
-        backend_base_url=f"http://{node_id}.local:28100/v1",
+        api_base_url=api_base_url or f"http://{node_id}.local:28020/v1",
+        backend_base_url=backend_base_url or f"http://{node_id}.local:28100/v1",
         backend_id="vllm-mlx",
         chip="Apple M3 Ultra",
         memory_gib=256,
@@ -111,6 +113,25 @@ def test_cluster_registration_rejects_unsafe_ports_and_empty_capabilities() -> N
         )
 
 
+def test_cluster_registration_rejects_low_endpoint_url_ports() -> None:
+    with pytest.raises(ValueError, match="api_base_url.*20000-50000"):
+        register_cluster_node(
+            _node(
+                "studio-a",
+                queue_depth=0,
+                api_base_url="http://studio-a.local:8000/v1",
+            )
+        )
+    with pytest.raises(ValueError, match="backend_base_url.*20000-50000"):
+        register_cluster_node(
+            _node(
+                "studio-a",
+                queue_depth=0,
+                backend_base_url="http://studio-a.local:8100/v1",
+            )
+        )
+
+
 def test_cluster_evidence_manifest_requires_node_route_logs_traces_and_metrics() -> (
     None
 ):
@@ -171,6 +192,7 @@ def test_mac_studio_cluster_docs_describe_code_backed_contracts() -> None:
         "phoenix_spans",
         "metrics",
         "20000-50000",
+        "API and backend base URLs",
         "real multi-node proof",
     ):
         assert required in text

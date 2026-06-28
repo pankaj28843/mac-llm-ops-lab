@@ -42,6 +42,7 @@ exists.
 - readiness and health
 - capabilities
 - local service ports, which must stay in the `20000-50000` range
+- API and backend base URLs with explicit ports in the `20000-50000` range
 
 `route_to_model` is conservative. It only routes to registered nodes that are
 both healthy and ready and that explicitly list the requested model. Among
@@ -104,10 +105,11 @@ python -m mac_llm_ops_lab.cluster node-evidence \
 ```
 
 Every local binding in that report must use a high port in the `20000-50000`
-range. The report rejects low ports such as `8000`, `6006`, `5432`, `4317`, or
-`9090` for host-local bindings, rejects absolute or parent-traversal artifact
-paths, and requires API logs, backend logs, Phoenix spans, metrics, command,
-model revision, macOS version, and health URLs.
+range. API and backend base URLs, health URLs, Phoenix URL, and the explicit
+port map all follow the same rule. The report rejects low ports such as `8000`,
+`6006`, `5432`, `4317`, or `9090` for host-local bindings, rejects absolute or
+parent-traversal artifact paths, and requires API logs, backend logs, Phoenix
+spans, metrics, command, model revision, macOS version, and health URLs.
 
 The generated report includes `requires_real_multi_node_proof: true`. A single
 node report is useful setup evidence, but it does not complete real multi-node

@@ -88,8 +88,11 @@ def register_cluster_node(node: ClusterNode) -> ClusterNode:
     return ClusterNode(
         node_id=_non_empty_string(node.node_id, field_name="node_id"),
         hostname=_non_empty_string(node.hostname, field_name="hostname"),
-        api_base_url=_validated_url(node.api_base_url, field_name="api_base_url"),
-        backend_base_url=_validated_url(
+        api_base_url=_validated_high_port_url(
+            node.api_base_url,
+            field_name="api_base_url",
+        ),
+        backend_base_url=_validated_high_port_url(
             node.backend_base_url,
             field_name="backend_base_url",
         ),
@@ -295,7 +298,7 @@ def _validated_route_decision(decision: RoutingDecision) -> RoutingDecision:
         api_base_url=(
             None
             if decision.api_base_url is None
-            else _validated_url(
+            else _validated_high_port_url(
                 decision.api_base_url, field_name="decision.api_base_url"
             )
         ),
