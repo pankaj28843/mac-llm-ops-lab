@@ -8,6 +8,7 @@ from pathlib import Path
 VLLM_MLX_METRICS_SUMMARY_SCHEMA_VERSION = "vllm-mlx-metrics-summary/v1"
 VLLM_MLX_BENCHMARK_SUMMARY_SCHEMA_VERSION = "vllm-mlx-benchmark-summary/v1"
 VLLM_MLX_BACKEND_CONTRACT_SCHEMA_VERSION = "vllm-mlx-backend-contract/v1"
+VLLM_MLX_BENCHMARK_POLICY_SCHEMA_VERSION = "vllm-mlx-benchmark-policy/v1"
 
 _SAMPLE_PATTERN = re.compile(
     r"^(?P<name>[a-zA-Z_:][a-zA-Z0-9_:]*)(?:\{(?P<labels>[^}]*)\})?\s+"
@@ -48,6 +49,125 @@ _BENCHMARK_REQUIRED_FIELDS = (
     "tokens_saved",
     "validated",
 )
+
+
+def build_benchmark_workload_policy() -> dict[str, object]:
+    return {
+        "schema_version": VLLM_MLX_BENCHMARK_POLICY_SCHEMA_VERSION,
+        "source_grounding": [
+            "Mac LLM Ops Lab chapter 9: examine hardware, "
+            "generate representative benchmark traffic, define metrics, verify "
+            "memory/KV cache, then compare baseline, cache, quantized, and "
+            "distributed configurations.",
+            "Mac LLM Ops Lab chapter 4: measure latency and "
+            "throughput with TTFT, ITL/TPOT, end-to-end latency, and request or "
+            "token throughput according to the user-facing workload.",
+            "OpenTelemetry performance benchmark: use warm-up before measurement, "
+            "repeat measurements, and report CPU/memory plus the target platform.",
+            "OpenTelemetry GenAI semantic conventions: keep model, provider, "
+            "operation, server, and error attributes available in trace evidence.",
+        ],
+        "local_port_range": {"min": 20000, "max": 50000},
+        "workloads": [
+            {
+                "name": "smoke_short",
+                "purpose": "Command-surface, parser, metrics, and trace smoke only.",
+                "prompt_set": "short",
+                "profile": "tiny deterministic request for safe local wiring proof",
+                "production_claim_eligible": False,
+                "output_token_targets": [4, 16, 64],
+                "concurrency_levels": [1],
+                "request_rates_per_second": [1.0],
+                "burstiness": [1.0],
+                "warmup_requests": 0,
+                "repetitions": 1,
+                "validation_policy": "validated:false allowed only for this smoke.",
+            },
+            {
+                "name": "conversational_sharegpt",
+                "purpose": "Interactive chat baseline with realistic turn lengths.",
+                "prompt_set": "sharegpt",
+                "profile": "balanced prefill/decode conversational traffic",
+                "production_claim_eligible": True,
+                "output_token_targets": [64, 128, 256],
+                "concurrency_levels": [1, 2, 4],
+                "request_rates_per_second": [1.0, 2.0, 5.0],
+                "burstiness": [1.0],
+                "warmup_requests": 10,
+                "repetitions": 3,
+                "validation_policy": "validated:true required for performance claims.",
+            },
+            {
+                "name": "prefix_repetition_cache",
+                "purpose": "Cache and repeated-prefix behavior under controlled reuse.",
+                "prompt_set": "prefix_repetition",
+                "profile": "prefill-heavy repeated-prefix cache workload",
+                "production_claim_eligible": True,
+                "output_token_targets": [64, 128],
+                "concurrency_levels": [1, 2, 4],
+                "request_rates_per_second": [1.0, 2.0, 5.0],
+                "burstiness": [1.0],
+                "warmup_requests": 10,
+                "repetitions": 3,
+                "prefix_repetition": {
+                    "prefix_lengths": [256],
+                    "suffix_lengths": [256],
+                    "unique_prefix_counts": [5, 10],
+                },
+                "validation_policy": "validated:true required for performance claims.",
+            },
+        ],
+        "required_metadata": [
+            "git_sha",
+            "command",
+            "host_chip",
+            "unified_memory_gb",
+            "macos_version",
+            "backend_name",
+            "backend_version",
+            "model_id",
+            "model_revision",
+            "quantization",
+            "api_port",
+            "backend_port",
+            "phoenix_port",
+            "otlp_grpc_port",
+            "prompt_set",
+            "input_token_distribution",
+            "output_token_target",
+            "concurrency",
+            "request_rate_per_second",
+            "burstiness",
+            "warmup_requests",
+            "repetition_index",
+            "validated",
+        ],
+        "required_metrics": [
+            "ttft_ms",
+            "e2e_latency_ms",
+            "tpot_or_itl_ms",
+            "total_tps",
+            "output_tps",
+            "requests_per_s",
+            "prompt_tokens",
+            "completion_tokens",
+            "error_rate",
+            "metal_active_gb",
+            "metal_peak_gb",
+            "metal_cache_gb",
+            "cache_hit_rate",
+            "tokens_saved",
+            "phoenix_gen_ai_spans",
+        ],
+        "claim_boundaries": [
+            "validated:false is smoke-only; it can prove command shape but not "
+            "quality or production performance.",
+            "MacBook measurements are local baselines for this development host, "
+            "with the capsule-local 24 GiB real-model memory ceiling.",
+            "Mac Studio cluster claims require Mac Studio runs with node count, "
+            "chip, memory, network, model, routing, and trace evidence.",
+        ],
+    }
 
 
 def summarize_vllm_mlx_metrics(metrics_text: str) -> dict[str, object]:

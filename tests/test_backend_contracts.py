@@ -6,6 +6,7 @@ import pytest
 from mac_llm_ops_lab.backend_contracts import (
     build_backend_contract_report,
     build_benchmark_summary,
+    build_benchmark_workload_policy,
     load_benchmark_rows,
     summarize_vllm_mlx_metrics,
     write_backend_contract_report,
@@ -171,6 +172,93 @@ def test_benchmark_summary_rejects_missing_required_fields() -> None:
         build_benchmark_summary([row])
 
 
+def test_benchmark_workload_policy_names_representative_workloads() -> None:
+    policy = build_benchmark_workload_policy()
+
+    assert policy["schema_version"] == "vllm-mlx-benchmark-policy/v1"
+    assert json.loads(json.dumps(policy, sort_keys=True)) == policy
+    workload_names = {workload["name"] for workload in policy["workloads"]}
+    assert workload_names == {
+        "smoke_short",
+        "conversational_sharegpt",
+        "prefix_repetition_cache",
+    }
+    source_grounding = "\n".join(policy["source_grounding"])
+    assert "Mac LLM Ops Lab chapter 9" in source_grounding
+    assert "OpenTelemetry performance benchmark" in source_grounding
+
+    production_workloads = [
+        workload
+        for workload in policy["workloads"]
+        if workload["production_claim_eligible"] is True
+    ]
+    assert production_workloads
+    for workload in production_workloads:
+        assert workload["warmup_requests"] > 0
+        assert workload["repetitions"] >= 3
+        assert workload["output_token_targets"]
+        assert workload["concurrency_levels"]
+        assert workload["request_rates_per_second"]
+
+
+def test_benchmark_workload_policy_requires_metadata_metrics_and_boundaries() -> None:
+    policy = build_benchmark_workload_policy()
+
+    required_metadata = set(policy["required_metadata"])
+    for field in (
+        "git_sha",
+        "command",
+        "host_chip",
+        "unified_memory_gb",
+        "macos_version",
+        "backend_name",
+        "backend_version",
+        "model_id",
+        "model_revision",
+        "quantization",
+        "api_port",
+        "backend_port",
+        "phoenix_port",
+        "otlp_grpc_port",
+        "prompt_set",
+        "input_token_distribution",
+        "output_token_target",
+        "concurrency",
+        "request_rate_per_second",
+        "burstiness",
+        "warmup_requests",
+        "repetition_index",
+        "validated",
+    ):
+        assert field in required_metadata
+
+    required_metrics = set(policy["required_metrics"])
+    for metric in (
+        "ttft_ms",
+        "e2e_latency_ms",
+        "tpot_or_itl_ms",
+        "total_tps",
+        "output_tps",
+        "requests_per_s",
+        "prompt_tokens",
+        "completion_tokens",
+        "error_rate",
+        "metal_active_gb",
+        "metal_peak_gb",
+        "metal_cache_gb",
+        "cache_hit_rate",
+        "tokens_saved",
+        "phoenix_gen_ai_spans",
+    ):
+        assert metric in required_metrics
+
+    boundaries = "\n".join(policy["claim_boundaries"])
+    assert "validated:false is smoke-only" in boundaries
+    assert "MacBook measurements are local baselines" in boundaries
+    assert "Mac Studio cluster claims require Mac Studio runs" in boundaries
+    assert policy["local_port_range"] == {"min": 20000, "max": 50000}
+
+
 def test_load_benchmark_rows_requires_json_list(tmp_path: Path) -> None:
     path = tmp_path / "bench.json"
     path.write_text(json.dumps([BENCHMARK_ROW]), encoding="utf-8")
@@ -236,5 +324,31 @@ def test_backend_contract_docs_describe_metrics_and_benchmark_boundaries() -> No
         "validated:false",
         "Open WebUI against the native backend is now runtime-proven",
         "fuller production benchmark remains separate",
+    ):
+        assert required in text
+
+
+def test_backend_contract_docs_define_representative_benchmark_policy() -> None:
+    text = Path("docs/backend-contracts.md").read_text(encoding="utf-8")
+
+    for required in (
+        "Benchmark Workload Policy",
+        "smoke_short",
+        "conversational_sharegpt",
+        "prefix_repetition_cache",
+        "warmup",
+        "repetitions",
+        "TTFT",
+        "TPOT",
+        "ITL",
+        "request throughput",
+        "Metal memory",
+        "Phoenix GenAI spans",
+        "input token distribution",
+        "output token target",
+        "MacBook measurements are local baselines",
+        "Mac Studio cluster claims require Mac Studio runs",
+        "validated:false is smoke-only",
+        "20000-50000",
     ):
         assert required in text

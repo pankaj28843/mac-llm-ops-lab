@@ -58,6 +58,48 @@ as a quality benchmark pass.
 The benchmark summary records model id, prompt set, concurrency, token limit,
 latency, throughput, Metal memory, cache hits/misses, and validation state.
 
+## Benchmark Workload Policy
+
+The machine-readable policy is exposed by
+`mac_llm_ops_lab.backend_contracts.build_benchmark_workload_policy()`.
+It is grounded in the book's benchmark process from chapter 9, the chapter 4
+latency/throughput metric split, and the OpenTelemetry benchmark guidance to
+warm up before measurement, repeat runs, and label the target platform. It also
+keeps GenAI telemetry attributes available in Phoenix evidence.
+
+Benchmark results must name one of these workloads before any interpretation:
+
+| Workload | Role | Required shape |
+| --- | --- | --- |
+| `smoke_short` | Command-surface, parser, metrics, and trace smoke only. | Short prompt set, concurrency 1, token targets 4/16/64, no production claim. |
+| `conversational_sharegpt` | Interactive chat baseline with realistic turn lengths. | ShareGPT-style prompt set, input token distribution, output token target 64/128/256, concurrency sweep 1/2/4, request-rate sweep, warmup, and repetitions. |
+| `prefix_repetition_cache` | Cache and repeated-prefix behavior under controlled reuse. | Prefix Repetition prompt set, prefix/suffix/unique-prefix parameters, output token target 64/128, concurrency sweep 1/2/4, request-rate sweep, warmup, repetitions, and cache metrics. |
+
+Production-eligible benchmark rows require `warmup` traffic before measurement
+and at least three `repetitions`. The `smoke_short` row may keep
+`validated:false`; `validated:false is smoke-only` and cannot support quality,
+UX, latency, throughput, cost, or Mac Studio capacity claims.
+
+Each benchmark artifact must carry enough metadata to make the result
+reproducible and auditable:
+
+- `git_sha`, command, backend name/version, model id, model revision,
+  quantization, prompt set, input token distribution, output token target,
+  concurrency, request rate, burstiness, warmup, repetition index, and
+  validation state.
+- Hardware and OS labels: host chip, unified memory, macOS version, and the
+  local API/backend/Phoenix/OTLP ports. Local bindings must stay in the
+  `20000-50000` range.
+- Metrics: TTFT, end-to-end latency, TPOT or ITL, total TPS, output TPS,
+  request throughput, prompt tokens, completion tokens, error rate, Metal memory
+  active/peak/cache values, cache hit rate, tokens saved, and Phoenix GenAI spans.
+
+MacBook measurements are local baselines for this development host and must
+respect the capsule-local 24 GiB real-model memory ceiling.
+Mac Studio cluster claims require Mac Studio runs with node count, chip, memory,
+network, model, routing, and trace evidence. A MacBook benchmark can inform the
+cluster plan, but it is not cluster capacity proof.
+
 ## Boundaries
 
 This contract does not prove a fuller production benchmark. The one-row
