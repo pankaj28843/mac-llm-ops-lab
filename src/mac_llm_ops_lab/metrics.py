@@ -11,6 +11,9 @@ class InMemoryMetrics:
         default_factory=dict
     )
     tokens_generated_total: dict[str, int] = field(default_factory=dict)
+    backend_generation_errors_total: dict[tuple[str, str], int] = field(
+        default_factory=dict
+    )
     stream_errors_total: dict[str, int] = field(default_factory=dict)
 
     def record_request(
@@ -31,6 +34,12 @@ class InMemoryMetrics:
         count = len(content.split())
         self.tokens_generated_total[model] = (
             self.tokens_generated_total.get(model, 0) + count
+        )
+
+    def record_backend_generation_error(self, *, model: str, code: str) -> None:
+        key = (model, code)
+        self.backend_generation_errors_total[key] = (
+            self.backend_generation_errors_total.get(key, 0) + 1
         )
 
     def record_stream_error(self, *, model: str) -> None:
@@ -65,6 +74,10 @@ class InMemoryMetrics:
             "tokens_generated_total": [
                 {"model": model, "count": count}
                 for model, count in self.tokens_generated_total.items()
+            ],
+            "backend_generation_errors_total": [
+                {"model": model, "code": code, "count": count}
+                for (model, code), count in self.backend_generation_errors_total.items()
             ],
             "stream_errors_total": [
                 {"model": model, "count": count}

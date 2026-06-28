@@ -172,6 +172,34 @@ def test_generation_backend_failures_return_sanitized_error() -> None:
     assert "raw backend failure" not in response.text
 
 
+def test_generation_backend_failures_increment_bounded_error_metric() -> None:
+    backend = FakeBackend(generation_error=RuntimeError("raw backend failure"))
+    app = create_app(backend=backend)
+
+    with TestClient(app, raise_server_exceptions=False) as client:
+        generation_response = client.post(
+            "/v1/chat/completions",
+            json={
+                "model": "fake-local-model",
+                "messages": [{"role": "user", "content": "secret prompt"}],
+                "stream": False,
+            },
+        )
+        metrics_response = client.get("/metrics/snapshot")
+
+    assert generation_response.status_code == 502
+    assert metrics_response.status_code == 200
+    assert metrics_response.json()["backend_generation_errors_total"] == [
+        {
+            "model": "fake-local-model",
+            "code": "backend_generation_failed",
+            "count": 1,
+        }
+    ]
+    assert "secret prompt" not in metrics_response.text
+    assert "raw backend failure" not in metrics_response.text
+
+
 def test_closing_streaming_events_closes_backend_stream() -> None:
     backend = FakeBackend()
 
@@ -354,6 +382,7 @@ def test_metrics_snapshot_uses_bounded_labels_without_prompt_text() -> None:
         "tokens_generated_total": [
             {"model": "fake-local-model", "count": 5},
         ],
+        "backend_generation_errors_total": [],
         "stream_errors_total": [],
     }
     assert "secret prompt" not in metrics_response.text

@@ -166,6 +166,10 @@ def create_app(*, backend: ModelBackend, settings: Settings | None = None) -> Fa
         try:
             content = await active_backend.generate(prompt, payload.model)
         except Exception as exc:
+            metrics.record_backend_generation_error(
+                model=payload.model,
+                code="backend_generation_failed",
+            )
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail={
