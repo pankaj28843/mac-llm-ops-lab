@@ -2,6 +2,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import PurePosixPath
 
 RUNTIME_EVIDENCE_MANIFEST_SCHEMA_VERSION = "runtime-evidence-manifest/v1"
+RUNTIME_EXECUTION_RECORD_SCHEMA_VERSION = "runtime-execution-record/v1"
 REQUIRED_HOST_LABELS = ("os", "chip", "memory_gib")
 
 
@@ -49,6 +50,52 @@ def build_runtime_evidence_manifest(
         "runtime_config": normalized_runtime_config,
         "ports": normalized_ports,
     }
+
+
+def build_runtime_execution_record(
+    *,
+    preflight_report: Mapping[str, object],
+    evidence_manifest: Mapping[str, object],
+) -> dict[str, object]:
+    _validate_preflight_manifest_consistency(
+        preflight_report=preflight_report,
+        evidence_manifest=evidence_manifest,
+    )
+    decision = _mapping_field(preflight_report, "decision")
+    can_execute = bool(decision.get("allowed", False))
+    return {
+        "schema_version": RUNTIME_EXECUTION_RECORD_SCHEMA_VERSION,
+        "can_execute": can_execute,
+        "reason_code": str(decision.get("reason_code", "")),
+        "preflight_report": dict(preflight_report),
+        "evidence_manifest": dict(evidence_manifest),
+    }
+
+
+def _validate_preflight_manifest_consistency(
+    *,
+    preflight_report: Mapping[str, object],
+    evidence_manifest: Mapping[str, object],
+) -> None:
+    backend = _mapping_field(evidence_manifest, "backend")
+    preflight_backend_id = preflight_report.get("backend_id")
+    manifest_backend_id = backend.get("id")
+    if preflight_backend_id != manifest_backend_id:
+        raise ValueError("backend id mismatch between preflight and manifest")
+    preflight_model_id = preflight_report.get("model_id")
+    manifest_model_id = backend.get("model_id")
+    if preflight_model_id != manifest_model_id:
+        raise ValueError("model id mismatch between preflight and manifest")
+
+
+def _mapping_field(
+    source: Mapping[str, object],
+    field_name: str,
+) -> Mapping[str, object]:
+    value = source.get(field_name)
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{field_name} must be a mapping")
+    return value
 
 
 def _validated_non_empty_string(value: str, *, field_name: str) -> str:
