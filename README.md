@@ -37,6 +37,9 @@ shape, reason codes, manifest labels and paths, and backend/model consistency.
 They can be persisted as sorted JSON under the validated artifact directory for
 future runtime evidence bundles, then loaded back with the same validation
 before downstream proof consumes them.
+Evidence bundles can be indexed deterministically so logs, execution records,
+request samples, metrics, traces, and benchmark files remain under the same
+validated artifact directory.
 
 For direct Python use:
 

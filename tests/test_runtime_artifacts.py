@@ -3,6 +3,7 @@ import json
 import pytest
 
 from mac_llm_ops_lab.runtime_artifacts import (
+    build_runtime_evidence_bundle_index,
     build_runtime_evidence_manifest,
     build_runtime_execution_record,
     load_runtime_execution_record,
@@ -465,3 +466,116 @@ def test_load_runtime_execution_record_round_trips_and_validates_json(
     )
     with pytest.raises(ValueError, match="can_execute"):
         load_runtime_execution_record(output_path)
+
+
+def test_runtime_evidence_bundle_index_is_json_safe_and_deterministic() -> None:
+    preflight_report = build_runtime_preflight_report(
+        RuntimePreflightPlan(
+            backend_id="fake-batched-backend",
+            model_id="fake-local-model",
+            explicitly_authorized=False,
+            model_weights_gib=1.0,
+            kv_cache_gib=1.0,
+            runtime_overhead_gib=1.0,
+            service_overhead_gib=1.0,
+        )
+    )
+    manifest = build_runtime_evidence_manifest(
+        git_sha="bce02cc",
+        command=("uv", "run", "python", "-m", "mac_llm_ops_lab.cli"),
+        artifact_dir="artifacts/runtime/bce02cc-fake-smoke",
+        log_path="artifacts/runtime/bce02cc-fake-smoke/service.log",
+        host={"os": "macOS", "chip": "Apple Silicon", "memory_gib": 24},
+        backend_id="fake-batched-backend",
+        model_id="fake-local-model",
+        runtime_config={"quantization": "none"},
+        ports={"api": 8000},
+    )
+    record = build_runtime_execution_record(
+        preflight_report=preflight_report,
+        evidence_manifest=manifest,
+    )
+
+    bundle_index = build_runtime_evidence_bundle_index(
+        execution_record=record,
+        evidence_files={
+            "metrics": "artifacts/runtime/bce02cc-fake-smoke/metrics.json",
+            "chat_sample": "artifacts/runtime/bce02cc-fake-smoke/chat.json",
+        },
+    )
+
+    assert bundle_index == {
+        "schema_version": "runtime-evidence-bundle/v1",
+        "artifact_dir": "artifacts/runtime/bce02cc-fake-smoke",
+        "execution_record_path": (
+            "artifacts/runtime/bce02cc-fake-smoke/execution-record.json"
+        ),
+        "log_path": "artifacts/runtime/bce02cc-fake-smoke/service.log",
+        "can_execute": False,
+        "reason_code": "runtime_not_authorized",
+        "evidence_files": [
+            {
+                "label": "chat_sample",
+                "path": "artifacts/runtime/bce02cc-fake-smoke/chat.json",
+            },
+            {
+                "label": "metrics",
+                "path": "artifacts/runtime/bce02cc-fake-smoke/metrics.json",
+            },
+        ],
+    }
+    assert json.loads(json.dumps(bundle_index, sort_keys=True)) == bundle_index
+
+
+def test_runtime_evidence_bundle_index_rejects_unsafe_evidence_paths() -> None:
+    preflight_report = build_runtime_preflight_report(
+        RuntimePreflightPlan(
+            backend_id="fake-batched-backend",
+            model_id="fake-local-model",
+            explicitly_authorized=False,
+            model_weights_gib=1.0,
+            kv_cache_gib=1.0,
+            runtime_overhead_gib=1.0,
+            service_overhead_gib=1.0,
+        )
+    )
+    manifest = build_runtime_evidence_manifest(
+        git_sha="bce02cc",
+        command=("uv", "run", "python", "-m", "mac_llm_ops_lab.cli"),
+        artifact_dir="artifacts/runtime/bce02cc-fake-smoke",
+        log_path="artifacts/runtime/bce02cc-fake-smoke/service.log",
+        host={"os": "macOS", "chip": "Apple Silicon", "memory_gib": 24},
+        backend_id="fake-batched-backend",
+        model_id="fake-local-model",
+        runtime_config={"quantization": "none"},
+        ports={"api": 8000},
+    )
+    record = build_runtime_execution_record(
+        preflight_report=preflight_report,
+        evidence_manifest=manifest,
+    )
+
+    with pytest.raises(ValueError, match="evidence file label"):
+        build_runtime_evidence_bundle_index(
+            execution_record=record,
+            evidence_files={"": "artifacts/runtime/bce02cc-fake-smoke/chat.json"},
+        )
+    with pytest.raises(ValueError, match="evidence file path"):
+        build_runtime_evidence_bundle_index(
+            execution_record=record,
+            evidence_files={
+                "absolute": "/tmp/artifacts/runtime/bce02cc-fake-smoke/chat.json",
+            },
+        )
+    with pytest.raises(ValueError, match="evidence file path"):
+        build_runtime_evidence_bundle_index(
+            execution_record=record,
+            evidence_files={
+                "traversal": "artifacts/runtime/bce02cc-fake-smoke/../chat.json",
+            },
+        )
+    with pytest.raises(ValueError, match="evidence file path"):
+        build_runtime_evidence_bundle_index(
+            execution_record=record,
+            evidence_files={"outside": "artifacts/runtime/other/chat.json"},
+        )

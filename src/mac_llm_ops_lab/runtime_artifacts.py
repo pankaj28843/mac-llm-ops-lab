@@ -6,6 +6,7 @@ from mac_llm_ops_lab.runtime_guard import RUNTIME_PREFLIGHT_REPORT_SCHEMA_VERSIO
 
 RUNTIME_EVIDENCE_MANIFEST_SCHEMA_VERSION = "runtime-evidence-manifest/v1"
 RUNTIME_EXECUTION_RECORD_SCHEMA_VERSION = "runtime-execution-record/v1"
+RUNTIME_EVIDENCE_BUNDLE_SCHEMA_VERSION = "runtime-evidence-bundle/v1"
 REQUIRED_HOST_LABELS = ("os", "chip", "memory_gib")
 
 
@@ -110,6 +111,30 @@ def load_runtime_execution_record(path: Path) -> dict[str, object]:
     return _canonical_runtime_execution_record(payload)
 
 
+def build_runtime_evidence_bundle_index(
+    *,
+    execution_record: Mapping[str, object],
+    evidence_files: Mapping[str, str],
+) -> dict[str, object]:
+    canonical_record = _canonical_runtime_execution_record(execution_record)
+    evidence_manifest = _mapping_field(canonical_record, "evidence_manifest")
+    artifact_dir = str(evidence_manifest["artifact_dir"])
+    execution_record_path = f"{artifact_dir}/execution-record.json"
+    log_path = str(evidence_manifest["log_path"])
+    return {
+        "schema_version": RUNTIME_EVIDENCE_BUNDLE_SCHEMA_VERSION,
+        "artifact_dir": artifact_dir,
+        "execution_record_path": execution_record_path,
+        "log_path": log_path,
+        "can_execute": canonical_record["can_execute"],
+        "reason_code": canonical_record["reason_code"],
+        "evidence_files": _validated_evidence_files(
+            evidence_files,
+            artifact_dir=artifact_dir,
+        ),
+    }
+
+
 def _canonical_runtime_execution_record(
     record: Mapping[str, object],
 ) -> dict[str, object]:
@@ -127,6 +152,43 @@ def _canonical_runtime_execution_record(
     if record.get("reason_code") != canonical_record["reason_code"]:
         raise ValueError("reason_code must match the preflight decision")
     return canonical_record
+
+
+def _validated_evidence_files(
+    evidence_files: Mapping[str, str],
+    *,
+    artifact_dir: str,
+) -> list[dict[str, str]]:
+    normalized = []
+    for label, path in sorted(evidence_files.items()):
+        normalized_label = _validated_non_empty_string(
+            label,
+            field_name="evidence file label",
+        )
+        normalized_path = _validated_bundle_path(
+            path,
+            artifact_dir=artifact_dir,
+            field_name="evidence file path",
+        )
+        normalized.append({"label": normalized_label, "path": normalized_path})
+    return normalized
+
+
+def _validated_bundle_path(
+    value: object,
+    *,
+    artifact_dir: str,
+    field_name: str,
+) -> str:
+    path = _validated_relative_path(
+        _validated_non_empty_string(value, field_name=field_name),
+        field_name=field_name,
+    )
+    try:
+        path.relative_to(PurePosixPath(artifact_dir))
+    except ValueError as exc:
+        raise ValueError(f"{field_name} must be inside artifact_dir") from exc
+    return path.as_posix()
 
 
 def _validate_schema_version(
