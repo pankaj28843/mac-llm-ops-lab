@@ -19,3 +19,6 @@ def _fake_model_id(settings: Settings) -> str:
     if settings.model_allowlist:
         return settings.model_allowlist[0]
     return DEFAULT_FAKE_MODEL_ID
+
+
+app = build_app()

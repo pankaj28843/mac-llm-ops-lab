@@ -30,3 +30,18 @@ def test_cli_build_app_uses_fake_backend_without_external_services() -> None:
     assert generation_response.json()["choices"][0]["message"]["content"] == (
         "fake-local-model response to hello cli"
     )
+
+
+def test_cli_module_exports_fake_backend_asgi_app_without_external_services() -> None:
+    from mac_llm_ops_lab import cli
+
+    with TestClient(cli.app) as client:
+        ready_response = client.get("/ready")
+        models_response = client.get("/v1/models")
+
+    assert ready_response.status_code == 200
+    assert ready_response.json() == {"status": "ready"}
+    assert models_response.status_code == 200
+    assert models_response.json()["data"] == [
+        {"id": "fake-local-model", "object": "model"}
+    ]
