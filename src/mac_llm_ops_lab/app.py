@@ -1,4 +1,5 @@
 import json
+import logging
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -11,6 +12,8 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from mac_llm_ops_lab.config import Settings, load_settings
+
+HTTP_LOGGER = logging.getLogger("mac_llm_ops_lab.http")
 
 
 class ModelBackend(Protocol):
@@ -59,6 +62,15 @@ def create_app(*, backend: ModelBackend, settings: Settings | None = None) -> Fa
         request.state.request_id = request_id
         response = await call_next(request)
         response.headers[app_settings.request_id_header] = request_id
+        HTTP_LOGGER.info(
+            "http_request",
+            extra={
+                "request_id": request_id,
+                "http_method": request.method,
+                "http_route": _request_route(request),
+                "http_status_code": response.status_code,
+            },
+        )
         return response
 
     @app.exception_handler(HTTPException)
@@ -208,6 +220,14 @@ def _request_id_header(request: Request) -> str:
     if isinstance(settings, Settings):
         return settings.request_id_header
     return "x-request-id"
+
+
+def _request_route(request: Request) -> str:
+    route = request.scope.get("route")
+    path = getattr(route, "path", None)
+    if isinstance(path, str):
+        return path
+    return request.url.path
 
 
 async def _stream_events(

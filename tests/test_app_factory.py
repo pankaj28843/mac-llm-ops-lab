@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from collections.abc import AsyncIterator
 
 from fastapi.testclient import TestClient
@@ -276,3 +277,36 @@ def test_model_allowlist_rejects_disallowed_generation_without_backend_call() ->
     }
     assert "secret prompt" not in response.text
     assert backend.generated_prompts == []
+
+
+def test_http_request_log_uses_bounded_fields_without_prompt_text(caplog) -> None:
+    caplog.set_level(logging.INFO, logger="mac_llm_ops_lab.http")
+    backend = FakeBackend()
+    app = create_app(backend=backend)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/chat/completions",
+            headers={"x-request-id": "req-log"},
+            json={
+                "model": "fake-local-model",
+                "messages": [{"role": "user", "content": "secret prompt"}],
+                "stream": False,
+            },
+        )
+
+    request_logs = [
+        record
+        for record in caplog.records
+        if record.name == "mac_llm_ops_lab.http"
+        and record.getMessage() == "http_request"
+    ]
+
+    assert response.status_code == 200
+    assert len(request_logs) == 1
+    record = request_logs[0]
+    assert record.request_id == "req-log"
+    assert record.http_method == "POST"
+    assert record.http_route == "/v1/chat/completions"
+    assert record.http_status_code == 200
+    assert "secret prompt" not in caplog.text
