@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 DEFAULT_MEMORY_CEILING_GIB = 24.0
+RUNTIME_PREFLIGHT_REPORT_SCHEMA_VERSION = "runtime-preflight/v1"
 
 
 @dataclass(frozen=True)
@@ -72,6 +73,29 @@ def evaluate_runtime_preflight(
         estimated_total_gib=estimated_total_gib,
         memory_ceiling_gib=plan.memory_ceiling_gib,
     )
+
+
+def build_runtime_preflight_report(plan: RuntimePreflightPlan) -> dict[str, object]:
+    decision = evaluate_runtime_preflight(plan)
+    return {
+        "schema_version": RUNTIME_PREFLIGHT_REPORT_SCHEMA_VERSION,
+        "backend_id": plan.backend_id,
+        "model_id": plan.model_id,
+        "explicitly_authorized": plan.explicitly_authorized,
+        "memory_gib": {
+            "model_weights": plan.model_weights_gib,
+            "kv_cache": plan.kv_cache_gib,
+            "runtime_overhead": plan.runtime_overhead_gib,
+            "service_overhead": plan.service_overhead_gib,
+            "estimated_total": decision.estimated_total_gib,
+            "ceiling": decision.memory_ceiling_gib,
+        },
+        "decision": {
+            "allowed": decision.allowed,
+            "reason_code": decision.reason_code,
+            "message": decision.message,
+        },
+    }
 
 
 def _has_negative_memory_estimate(plan: RuntimePreflightPlan) -> bool:

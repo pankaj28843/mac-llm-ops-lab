@@ -22,7 +22,9 @@ or require Open WebUI or Mac Studio cluster services.
 Future real-model runtime checks must pass the CPU-safe preflight guard in
 `mac_llm_ops_lab.runtime_guard` first. The guard requires explicit
 authorization and skips plans whose estimated model weights, KV cache, runtime
-overhead, and service overhead exceed the configured memory ceiling.
+overhead, and service overhead exceed the configured memory ceiling. It can also
+build a JSON-safe preflight report for future runtime evidence before any risky
+command runs.
 
 For direct Python use:
 
