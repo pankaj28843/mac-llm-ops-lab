@@ -39,6 +39,22 @@ SECRET_PATTERNS = (
     ("google_api_key", re.compile(r"\bAIza[0-9A-Za-z_-]{35}\b")),
     ("private_key", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
 )
+COPYRIGHT_NOTICE_PATTERNS = (
+    (
+        "external_source_copyright_notice",
+        re.compile(
+            r"O[’']Reilly Media, Inc\..{0,120}All rights reserved",
+            re.IGNORECASE | re.DOTALL,
+        ),
+    ),
+    (
+        "book_reproduction_notice",
+        re.compile(
+            r"No part of this (book|publication).{0,160}(reproduced|transmitted)",
+            re.IGNORECASE | re.DOTALL,
+        ),
+    ),
+)
 
 
 def scan_public_release_files(
@@ -52,6 +68,7 @@ def scan_public_release_files(
         findings.extend(_forbidden_path_findings(normalized_path))
         findings.extend(_private_fragment_findings(normalized_path, text))
         findings.extend(_secret_pattern_findings(normalized_path, text))
+        findings.extend(_copyright_notice_findings(normalized_path, text))
 
     return {
         "schema_version": PUBLIC_RELEASE_CHECK_SCHEMA_VERSION,
@@ -64,6 +81,7 @@ def scan_public_release_files(
             "forbidden_tracked_paths",
             "private_machine_paths",
             "secret_patterns",
+            "copyright_notice_patterns",
         ],
     }
 
@@ -161,6 +179,21 @@ def _secret_pattern_findings(path: str, text: str) -> list[dict[str, object]]:
             findings.append(
                 {
                     "kind": "secret_pattern",
+                    "path": path,
+                    "pattern": name,
+                    "line": text.count("\n", 0, match.start()) + 1,
+                }
+            )
+    return findings
+
+
+def _copyright_notice_findings(path: str, text: str) -> list[dict[str, object]]:
+    findings = []
+    for name, pattern in COPYRIGHT_NOTICE_PATTERNS:
+        for match in pattern.finditer(text):
+            findings.append(
+                {
+                    "kind": "copyright_notice_pattern",
                     "path": path,
                     "pattern": name,
                     "line": text.count("\n", 0, match.start()) + 1,

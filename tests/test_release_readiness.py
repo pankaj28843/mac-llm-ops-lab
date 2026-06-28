@@ -52,6 +52,29 @@ def test_public_release_scan_rejects_forbidden_paths_and_secret_text() -> None:
     }
 
 
+def test_public_release_scan_rejects_copied_book_copyright_notice() -> None:
+    copied_notice = (
+        "Copyright 2026 " + "external source" + " Media, Inc. " + "All rights reserved."
+    )
+    copied_reproduction_notice = (
+        "No part of this "
+        + "book may be reproduced or transmitted without written permission."
+    )
+
+    report = scan_public_release_files(
+        {
+            "docs/copied-book.md": copied_notice,
+            "docs/copied-reproduction-notice.md": copied_reproduction_notice,
+        },
+        git_sha="abc1234",
+    )
+
+    assert report["passed"] is False
+    assert {finding["kind"] for finding in report["findings"]} == {
+        "copyright_notice_pattern",
+    }
+
+
 def test_public_release_report_writer_requires_ignored_runtime_output(tmp_path) -> None:
     report = scan_public_release_files({"README.md": "clean"}, git_sha="abc1234")
 
@@ -89,7 +112,10 @@ def test_release_docs_makefile_and_mkdocs_nav_define_validation_path() -> None:
         "Calibre" + " Library",
         "external source",
         "Copyright Clearance Center",
+        "Membership Agreement",
+        "250 words",
         "no chapter text",
+        "no copied copyright notice",
         "no converted book export",
     ):
         assert required in release_docs

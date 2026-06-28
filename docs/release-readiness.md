@@ -72,14 +72,19 @@ Official source surface checked on 2026-06-28:
 - [external source Terms of Service](https://github.com/pankaj28843/mac-llm-ops-lab/) says external source
   and its content providers retain ownership and copyright in site content and
   materials.
+- [external source Membership Agreement](https://github.com/pankaj28843/mac-llm-ops-lab/)
+  permits limited quoted portions with attribution, up to 250 words from a
+  single text, and otherwise restricts publishing service content to third-party
+  websites unless the agreement expressly allows it.
 - [external source Rights and Permissions](https://github.com/pankaj28843/mac-llm-ops-lab/) directs
   reuse licensing through the Copyright Clearance Center or an explicit
   permission request.
 
 For this public repo and GitHub Pages site, the rule is: links and short
 paraphrase are allowed; no chapter text, no images, no screenshots, no tables,
-no converted book export, no purchased EPUB/PDF, and no copied companion-repo
-code unless a future change records a reviewed license basis.
+no copied copyright notice, no converted book export, no purchased EPUB/PDF, and
+no copied companion-repo code unless a future change records a reviewed license
+basis.
 
 ## Current Honesty Boundary
 
