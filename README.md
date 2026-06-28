@@ -29,7 +29,8 @@ local model caches, traces, raw benchmarks, logs, database files, and artifacts.
 Future runtime runs can use `mac_llm_ops_lab.runtime_artifacts` to build a
 JSON-safe evidence manifest with git SHA, command, host, backend, model,
 artifact directory, and log path labels. Manifest paths must stay under
-`artifacts/runtime/`, and logs must stay inside the artifact directory.
+`artifacts/runtime/`, logs must stay inside the artifact directory, and required
+runtime labels must be non-empty.
 
 For direct Python use:
 
