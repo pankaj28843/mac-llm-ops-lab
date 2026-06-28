@@ -3,6 +3,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import yaml
+
 from mac_llm_ops_lab.release_readiness import (
     scan_public_release_files,
     write_public_release_report,
@@ -99,6 +101,7 @@ def test_release_docs_makefile_and_mkdocs_nav_define_validation_path() -> None:
 
 def test_github_pages_workflow_is_pinned_and_builds_mkdocs() -> None:
     workflow = Path(".github/workflows/pages.yml").read_text(encoding="utf-8")
+    workflow_config = yaml.safe_load(workflow)
 
     for required in (
         "name: Publish Docs",
@@ -118,6 +121,8 @@ def test_github_pages_workflow_is_pinned_and_builds_mkdocs() -> None:
         assert required in workflow
 
     assert "@v" not in workflow
+    assert workflow_config["jobs"]["deploy"]["needs"] == "build"
+    assert workflow_config["jobs"]["build"]["steps"][-1]["with"]["path"] == "site"
 
 
 def test_public_release_cli_writes_clean_report(tmp_path) -> None:
