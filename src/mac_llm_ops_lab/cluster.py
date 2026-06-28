@@ -1,14 +1,32 @@
+import argparse
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
+from urllib.parse import urlparse
 
 CLUSTER_EVIDENCE_MANIFEST_SCHEMA_VERSION = "cluster-evidence-manifest/v1"
+NODE_EVIDENCE_REPORT_SCHEMA_VERSION = "mac-studio-node-evidence/v1"
 REQUIRED_NODE_EVIDENCE_LABELS = (
     "api_log",
     "backend_log",
     "phoenix_spans",
     "metrics",
 )
+REQUIRED_NODE_REPORT_EVIDENCE_LABELS = (
+    "api_log",
+    "backend_log",
+    "metrics",
+    "node_evidence",
+    "phoenix_spans",
+)
+NODE_REPORT_EVIDENCE_SUFFIXES = {
+    "api_log": ".log",
+    "backend_log": ".log",
+    "metrics": ".json",
+    "node_evidence": ".json",
+    "phoenix_spans": ".json",
+}
 
 
 @dataclass(frozen=True)
@@ -163,6 +181,109 @@ def build_cluster_evidence_manifest(
     }
 
 
+def build_node_evidence_report(
+    *,
+    node: ClusterNode,
+    git_sha: str,
+    command: Sequence[str],
+    artifact_dir: str,
+    macos_version: str,
+    model_id: str,
+    model_revision: str,
+    health_urls: Mapping[str, str],
+    phoenix_url: str,
+    evidence_files: Mapping[str, str],
+) -> dict[str, object]:
+    normalized_node = register_cluster_node(node)
+    normalized_model_id = _non_empty_string(model_id, field_name="model_id")
+    if normalized_model_id not in normalized_node.models:
+        raise ValueError("model_id must be listed in node.models")
+
+    normalized_artifact_dir = _validated_artifact_dir(artifact_dir)
+    return {
+        "schema_version": NODE_EVIDENCE_REPORT_SCHEMA_VERSION,
+        "git_sha": _non_empty_string(git_sha, field_name="git_sha"),
+        "artifact_dir": normalized_artifact_dir,
+        "command": _validated_command(command),
+        "requires_real_multi_node_proof": True,
+        "node": normalized_node.to_inventory_record(),
+        "host": {
+            "hostname": normalized_node.hostname,
+            "chip": normalized_node.chip,
+            "memory_gib": normalized_node.memory_gib,
+            "macos_version": _non_empty_string(
+                macos_version,
+                field_name="macos_version",
+            ),
+        },
+        "backend": {
+            "backend_id": normalized_node.backend_id,
+            "model_id": normalized_model_id,
+            "model_revision": _non_empty_string(
+                model_revision,
+                field_name="model_revision",
+            ),
+        },
+        "service_endpoints": {
+            "api_base_url": normalized_node.api_base_url,
+            "backend_base_url": normalized_node.backend_base_url,
+            "health_urls": _validated_health_urls(health_urls),
+            "phoenix_url": _validated_high_port_url(
+                phoenix_url,
+                field_name="phoenix_url",
+            ),
+        },
+        "evidence_files": _validated_node_report_evidence_files(
+            evidence_files,
+            artifact_dir=normalized_artifact_dir,
+        ),
+    }
+
+
+def write_node_evidence_report(
+    *,
+    output_path: str,
+    node: ClusterNode,
+    git_sha: str,
+    command: Sequence[str],
+    artifact_dir: str,
+    macos_version: str,
+    model_id: str,
+    model_revision: str,
+    health_urls: Mapping[str, str],
+    phoenix_url: str,
+    evidence_files: Mapping[str, str],
+) -> dict[str, object]:
+    report = build_node_evidence_report(
+        node=node,
+        git_sha=git_sha,
+        command=command,
+        artifact_dir=artifact_dir,
+        macos_version=macos_version,
+        model_id=model_id,
+        model_revision=model_revision,
+        health_urls=health_urls,
+        phoenix_url=phoenix_url,
+        evidence_files=evidence_files,
+    )
+    normalized_output_path = _validated_evidence_path(
+        output_path,
+        artifact_dir=report["artifact_dir"],
+        field_name="output_path",
+        expected_suffix=".json",
+    )
+    if report["evidence_files"]["node_evidence"] != normalized_output_path:
+        raise ValueError("output_path must match evidence_files.node_evidence")
+
+    output = Path(normalized_output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(
+        json.dumps(report, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return report
+
+
 def _validated_route_decision(decision: RoutingDecision) -> RoutingDecision:
     return RoutingDecision(
         node_id=_non_empty_string(decision.node_id, field_name="decision.node_id"),
@@ -220,6 +341,31 @@ def _validated_node_evidence(
     return normalized
 
 
+def _validated_node_report_evidence_files(
+    evidence_files: Mapping[str, str],
+    *,
+    artifact_dir: str,
+) -> dict[str, str]:
+    files = dict(evidence_files)
+    missing = [
+        label for label in REQUIRED_NODE_REPORT_EVIDENCE_LABELS if label not in files
+    ]
+    if missing:
+        raise ValueError(
+            "evidence_files is missing required labels: " + ", ".join(missing),
+        )
+
+    return {
+        label: _validated_evidence_path(
+            files[label],
+            artifact_dir=artifact_dir,
+            field_name=f"evidence_files.{label}",
+            expected_suffix=NODE_REPORT_EVIDENCE_SUFFIXES[label],
+        )
+        for label in REQUIRED_NODE_REPORT_EVIDENCE_LABELS
+    }
+
+
 def _validated_evidence_path(
     value: str,
     *,
@@ -274,6 +420,33 @@ def _validated_high_ports(ports: Mapping[str, int]) -> dict[str, int]:
     return dict(sorted(normalized.items()))
 
 
+def _validated_health_urls(health_urls: Mapping[str, str]) -> dict[str, str]:
+    normalized = dict(health_urls)
+    if not normalized:
+        raise ValueError("health_urls must be non-empty")
+    return {
+        _non_empty_string(name, field_name="health URL name"): _validated_high_port_url(
+            value,
+            field_name=f"health_urls.{name}",
+        )
+        for name, value in sorted(normalized.items())
+    }
+
+
+def _validated_high_port_url(value: str, *, field_name: str) -> str:
+    text = _validated_url(value, field_name=field_name)
+    parsed = urlparse(text)
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        raise ValueError(f"{field_name} must include a valid port") from exc
+    if port is None:
+        raise ValueError(f"{field_name} must include an explicit high port")
+    if not 20000 <= port <= 50000:
+        raise ValueError(f"{field_name} port must stay in the 20000-50000 range")
+    return text
+
+
 def _validated_url(value: str, *, field_name: str) -> str:
     text = _non_empty_string(value, field_name=field_name)
     if not (text.startswith("http://") or text.startswith("https://")):
@@ -309,3 +482,117 @@ def _bool(value: object, *, field_name: str) -> bool:
     if not isinstance(value, bool):
         raise ValueError(f"{field_name} must be a boolean")
     return value
+
+
+def _parse_key_value_pairs(
+    values: Sequence[str],
+    *,
+    field_name: str,
+    integer_values: bool = False,
+) -> dict[str, int] | dict[str, str]:
+    parsed: dict[str, int] | dict[str, str] = {}
+    for value in values:
+        key, separator, raw_value = value.partition("=")
+        if not separator:
+            raise ValueError(f"{field_name} entries must use name=value")
+        key = _non_empty_string(key, field_name=f"{field_name} name")
+        raw_value = _non_empty_string(raw_value, field_name=f"{field_name}.{key}")
+        if integer_values:
+            try:
+                parsed[key] = int(raw_value)
+            except ValueError as exc:
+                raise ValueError(f"{field_name}.{key} must be an integer") from exc
+        else:
+            parsed[key] = raw_value
+    return parsed
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Mac Studio cluster evidence helpers.",
+    )
+    subparsers = parser.add_subparsers(dest="subcommand", required=True)
+    node_evidence = subparsers.add_parser(
+        "node-evidence",
+        help="Write a per-node evidence report under artifacts/runtime/.",
+    )
+    node_evidence.add_argument("--node-id", required=True)
+    node_evidence.add_argument("--hostname", required=True)
+    node_evidence.add_argument("--api-base-url", required=True)
+    node_evidence.add_argument("--backend-base-url", required=True)
+    node_evidence.add_argument("--backend-id", required=True)
+    node_evidence.add_argument("--chip", required=True)
+    node_evidence.add_argument("--memory-gib", type=int, required=True)
+    node_evidence.add_argument("--model-id", required=True)
+    node_evidence.add_argument("--model-revision", required=True)
+    node_evidence.add_argument("--macos-version", required=True)
+    node_evidence.add_argument("--capability", action="append", required=True)
+    node_evidence.add_argument("--port", action="append", required=True)
+    node_evidence.add_argument("--health-url", action="append", required=True)
+    node_evidence.add_argument("--phoenix-url", required=True)
+    node_evidence.add_argument("--git-sha", required=True)
+    node_evidence.add_argument("--command", action="append", required=True)
+    node_evidence.add_argument("--artifact-dir", required=True)
+    node_evidence.add_argument("--api-log", required=True)
+    node_evidence.add_argument("--backend-log", required=True)
+    node_evidence.add_argument("--phoenix-spans", required=True)
+    node_evidence.add_argument("--metrics", required=True)
+    node_evidence.add_argument("--output", required=True)
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+    if args.subcommand == "node-evidence":
+        ports = _parse_key_value_pairs(
+            args.port,
+            field_name="port",
+            integer_values=True,
+        )
+        health_urls = _parse_key_value_pairs(
+            args.health_url,
+            field_name="health-url",
+        )
+        evidence_files = {
+            "node_evidence": args.output,
+            "api_log": args.api_log,
+            "backend_log": args.backend_log,
+            "phoenix_spans": args.phoenix_spans,
+            "metrics": args.metrics,
+        }
+        node = ClusterNode(
+            node_id=args.node_id,
+            hostname=args.hostname,
+            api_base_url=args.api_base_url,
+            backend_base_url=args.backend_base_url,
+            backend_id=args.backend_id,
+            chip=args.chip,
+            memory_gib=args.memory_gib,
+            models=(args.model_id,),
+            queue_depth=0,
+            ready=True,
+            healthy=True,
+            capabilities=tuple(args.capability),
+            ports=ports,
+        )
+        write_node_evidence_report(
+            output_path=args.output,
+            node=node,
+            git_sha=args.git_sha,
+            command=args.command,
+            artifact_dir=args.artifact_dir,
+            macos_version=args.macos_version,
+            model_id=args.model_id,
+            model_revision=args.model_revision,
+            health_urls=health_urls,
+            phoenix_url=args.phoenix_url,
+            evidence_files=evidence_files,
+        )
+        return 0
+    parser.error(f"unsupported subcommand: {args.subcommand}")
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

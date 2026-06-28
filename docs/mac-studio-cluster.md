@@ -62,6 +62,59 @@ This manifest is not real multi-node proof by itself. It is the contract that
 future real multi-node proof must satisfy before the project claims Mac Studio
 cluster readiness.
 
+## Node Evidence Capture
+
+`mac-studio-node-evidence/v1` is the per-node capture shape for future Mac
+Studio runs. Generate one `node-evidence.json` per Apple Silicon node, then
+reference those node bundles from `cluster-evidence-manifest/v1`.
+
+The command is intentionally explicit so the generated JSON can be reviewed and
+reproduced:
+
+```bash
+python -m mac_llm_ops_lab.cluster node-evidence \
+  --node-id macbook-pro-local \
+  --hostname macbook-pro.local \
+  --api-base-url http://127.0.0.1:28020/v1 \
+  --backend-base-url http://127.0.0.1:28100/v1 \
+  --backend-id vllm-mlx \
+  --chip "Apple M3 Max" \
+  --memory-gib 36 \
+  --model-id mlx-community/Qwen3-0.6B-8bit \
+  --model-revision 11de96878523501bcaa86104e3c186de07ff9068 \
+  --macos-version 15.5 \
+  --capability mlx \
+  --capability openai-compatible \
+  --capability streaming \
+  --capability otel \
+  --port api=28020 \
+  --port backend=28100 \
+  --port phoenix=26006 \
+  --health-url api_ready=http://127.0.0.1:28020/ready \
+  --health-url backend_models=http://127.0.0.1:28100/v1/models \
+  --phoenix-url http://127.0.0.1:26006 \
+  --git-sha "$(git rev-parse --short HEAD)" \
+  --command scripts/run-model-backed-api.sh \
+  --artifact-dir artifacts/runtime/example-node \
+  --api-log artifacts/runtime/example-node/api.log \
+  --backend-log artifacts/runtime/example-node/backend.log \
+  --phoenix-spans artifacts/runtime/example-node/phoenix-spans.json \
+  --metrics artifacts/runtime/example-node/metrics.json \
+  --output artifacts/runtime/example-node/node-evidence.json
+```
+
+Every local binding in that report must use a high port in the `20000-50000`
+range. The report rejects low ports such as `8000`, `6006`, `5432`, `4317`, or
+`9090` for host-local bindings, rejects absolute or parent-traversal artifact
+paths, and requires API logs, backend logs, Phoenix spans, metrics, command,
+model revision, macOS version, and health URLs.
+
+The generated report includes `requires_real_multi_node_proof: true`. A single
+node report is useful setup evidence, but it does not complete real multi-node
+proof. In short: node evidence capture does not complete real multi-node proof.
+Cluster readiness still requires at least two Apple Silicon nodes with routing,
+rollback, Phoenix/OpenTelemetry, benchmark, and publish-safety evidence.
+
 ## Planned Shape
 
 The likely first cluster shape is a private Mac Studio LAN where each node runs
