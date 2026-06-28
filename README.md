@@ -42,6 +42,14 @@ request samples, metrics, traces, and benchmark files remain under the same
 validated artifact directory. The bundle index can also be persisted as sorted
 JSON beside the execution record.
 
+`mac_llm_ops_lab.runtime_stack.build_local_runtime_stack_plan()` exposes a
+static macOS-local topology for the next runtime work. It declares the API,
+PostgreSQL, Phoenix, Open WebUI, and a gated native Apple Silicon backend path
+without starting containers, requiring secrets, or downloading models. This is
+not yet a runnable Compose stack; `compose.yaml`, PostgreSQL migrations,
+Phoenix trace export, Open WebUI smoke evidence, and real-model backend proof
+are still pending.
+
 For direct Python use:
 
 ```bash
