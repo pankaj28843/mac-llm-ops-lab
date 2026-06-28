@@ -208,3 +208,25 @@ def test_streaming_backend_failures_emit_sanitized_error_chunk() -> None:
     assert "secret prompt" not in lines[-2]
     assert "raw stream failure" not in lines[-2]
     assert backend.stream_closed == 1
+
+
+def test_request_validation_failures_return_structured_error() -> None:
+    backend = FakeBackend()
+    app = create_app(backend=backend)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/chat/completions",
+            headers={"x-request-id": "req-invalid"},
+            json={"model": "fake-local-model", "messages": [], "stream": False},
+        )
+
+    assert response.status_code == 422
+    assert response.headers["x-request-id"] == "req-invalid"
+    assert response.json() == {
+        "error": {
+            "code": "request_validation_failed",
+            "message": "Request validation failed",
+            "request_id": "req-invalid",
+        }
+    }

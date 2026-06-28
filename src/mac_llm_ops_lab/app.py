@@ -6,6 +6,7 @@ from typing import Protocol
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -62,17 +63,22 @@ def create_app(*, backend: ModelBackend) -> FastAPI:
         detail = exc.detail if isinstance(exc.detail, dict) else {}
         code = str(detail.get("code", "http_error"))
         message = str(detail.get("message", "Request failed"))
-        request_id = getattr(request.state, "request_id", uuid4().hex)
-        return JSONResponse(
+        return _error_response(
+            request=request,
             status_code=exc.status_code,
-            content={
-                "error": {
-                    "code": code,
-                    "message": message,
-                    "request_id": request_id,
-                }
-            },
-            headers={"x-request-id": request_id},
+            code=code,
+            message=message,
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        return _error_response(
+            request=request,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            code="request_validation_failed",
+            message="Request validation failed",
         )
 
     @app.get("/live")
@@ -145,6 +151,23 @@ def _completion_response(*, model: str, content: str) -> dict[str, object]:
             }
         ],
     }
+
+
+def _error_response(
+    *, request: Request, status_code: int, code: str, message: str
+) -> JSONResponse:
+    request_id = getattr(request.state, "request_id", uuid4().hex)
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "error": {
+                "code": code,
+                "message": message,
+                "request_id": request_id,
+            }
+        },
+        headers={"x-request-id": request_id},
+    )
 
 
 async def _stream_events(
