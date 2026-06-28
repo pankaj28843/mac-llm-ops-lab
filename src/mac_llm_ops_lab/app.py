@@ -10,6 +10,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
+from mac_llm_ops_lab.config import Settings, load_settings
+
 
 class ModelBackend(Protocol):
     async def load(self) -> None: ...
@@ -36,7 +38,9 @@ class ChatCompletionRequest(BaseModel):
     stream: bool = False
 
 
-def create_app(*, backend: ModelBackend) -> FastAPI:
+def create_app(*, backend: ModelBackend, settings: Settings | None = None) -> FastAPI:
+    app_settings = settings or load_settings()
+
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await backend.load()
@@ -46,14 +50,15 @@ def create_app(*, backend: ModelBackend) -> FastAPI:
         finally:
             await backend.close()
 
-    app = FastAPI(title="Mac LLM Ops Lab", lifespan=lifespan)
+    app = FastAPI(title=app_settings.service_name, lifespan=lifespan)
+    app.state.settings = app_settings
 
     @app.middleware("http")
     async def request_id_middleware(request: Request, call_next):
-        request_id = request.headers.get("x-request-id") or uuid4().hex
+        request_id = request.headers.get(app_settings.request_id_header) or uuid4().hex
         request.state.request_id = request_id
         response = await call_next(request)
-        response.headers["x-request-id"] = request_id
+        response.headers[app_settings.request_id_header] = request_id
         return response
 
     @app.exception_handler(HTTPException)
@@ -101,13 +106,19 @@ def create_app(*, backend: ModelBackend) -> FastAPI:
     @app.get("/v1/models")
     async def models(request: Request) -> dict[str, object]:
         active_backend: ModelBackend = request.app.state.backend
-        return {"object": "list", "data": await active_backend.list_models()}
+        return {
+            "object": "list",
+            "data": _filter_allowed_models(
+                await active_backend.list_models(), settings=app_settings
+            ),
+        }
 
     @app.post("/v1/chat/completions", response_model=None)
     async def chat_completions(
         payload: ChatCompletionRequest, request: Request
     ) -> dict[str, object] | StreamingResponse:
         active_backend: ModelBackend = request.app.state.backend
+        _ensure_model_allowed(payload.model, settings=app_settings)
         prompt = _last_user_message(payload.messages)
         if payload.stream:
             return StreamingResponse(
@@ -137,6 +148,27 @@ def _last_user_message(messages: list[ChatMessage]) -> str:
     return messages[-1].content
 
 
+def _filter_allowed_models(
+    models: list[dict[str, str]], *, settings: Settings
+) -> list[dict[str, str]]:
+    if not settings.model_allowlist:
+        return models
+    allowed = set(settings.model_allowlist)
+    return [model for model in models if model.get("id") in allowed]
+
+
+def _ensure_model_allowed(model: str, *, settings: Settings) -> None:
+    if not settings.model_allowlist or model in settings.model_allowlist:
+        return
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail={
+            "code": "model_not_allowed",
+            "message": "Model is not allowed",
+        },
+    )
+
+
 def _completion_response(*, model: str, content: str) -> dict[str, object]:
     return {
         "id": f"chatcmpl-{uuid4().hex}",
@@ -157,6 +189,7 @@ def _error_response(
     *, request: Request, status_code: int, code: str, message: str
 ) -> JSONResponse:
     request_id = getattr(request.state, "request_id", uuid4().hex)
+    request_id_header = _request_id_header(request)
     return JSONResponse(
         status_code=status_code,
         content={
@@ -166,8 +199,15 @@ def _error_response(
                 "request_id": request_id,
             }
         },
-        headers={"x-request-id": request_id},
+        headers={request_id_header: request_id},
     )
+
+
+def _request_id_header(request: Request) -> str:
+    settings = getattr(request.app.state, "settings", None)
+    if isinstance(settings, Settings):
+        return settings.request_id_header
+    return "x-request-id"
 
 
 async def _stream_events(

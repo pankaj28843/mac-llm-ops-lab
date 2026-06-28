@@ -5,6 +5,7 @@ from collections.abc import AsyncIterator
 from fastapi.testclient import TestClient
 
 from mac_llm_ops_lab.app import _stream_events, create_app
+from mac_llm_ops_lab.config import Settings
 
 
 class FakeBackend:
@@ -230,3 +231,48 @@ def test_request_validation_failures_return_structured_error() -> None:
             "request_id": "req-invalid",
         }
     }
+
+
+def test_app_uses_configured_request_id_header() -> None:
+    backend = FakeBackend(ready_after_load=False)
+    app = create_app(
+        backend=backend,
+        settings=Settings(request_id_header="x-trace-id"),
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/ready", headers={"x-trace-id": "trace-123"})
+
+    assert response.status_code == 503
+    assert response.headers["x-trace-id"] == "trace-123"
+    assert response.json()["error"]["request_id"] == "trace-123"
+
+
+def test_model_allowlist_rejects_disallowed_generation_without_backend_call() -> None:
+    backend = FakeBackend()
+    app = create_app(
+        backend=backend,
+        settings=Settings(model_allowlist=("allowed-model",)),
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/chat/completions",
+            headers={"x-request-id": "req-model"},
+            json={
+                "model": "blocked-model",
+                "messages": [{"role": "user", "content": "secret prompt"}],
+                "stream": False,
+            },
+        )
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "error": {
+            "code": "model_not_allowed",
+            "message": "Model is not allowed",
+            "request_id": "req-model",
+        }
+    }
+    assert "secret prompt" not in response.text
+    assert backend.generated_prompts == []
