@@ -10,6 +10,7 @@ class InMemoryMetrics:
     request_latency_ms_max: dict[tuple[str, str, str], float] = field(
         default_factory=dict
     )
+    http_errors_total: dict[tuple[str, str, str], int] = field(default_factory=dict)
     tokens_generated_total: dict[str, int] = field(default_factory=dict)
     backend_generation_errors_total: dict[tuple[str, str], int] = field(
         default_factory=dict
@@ -35,6 +36,10 @@ class InMemoryMetrics:
         self.tokens_generated_total[model] = (
             self.tokens_generated_total.get(model, 0) + count
         )
+
+    def record_http_error(self, *, route: str, status_code: int, code: str) -> None:
+        key = (route, str(status_code), code)
+        self.http_errors_total[key] = self.http_errors_total.get(key, 0) + 1
 
     def record_backend_generation_error(self, *, model: str, code: str) -> None:
         key = (model, code)
@@ -74,6 +79,15 @@ class InMemoryMetrics:
             "tokens_generated_total": [
                 {"model": model, "count": count}
                 for model, count in self.tokens_generated_total.items()
+            ],
+            "http_errors_total": [
+                {
+                    "route": route,
+                    "status_code": status_code,
+                    "code": code,
+                    "count": count,
+                }
+                for (route, status_code, code), count in self.http_errors_total.items()
             ],
             "backend_generation_errors_total": [
                 {"model": model, "code": code, "count": count}

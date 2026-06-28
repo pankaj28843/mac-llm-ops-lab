@@ -74,6 +74,13 @@ def create_app(*, backend: ModelBackend, settings: Settings | None = None) -> Fa
             status_code=response.status_code,
             duration_ms=duration_ms,
         )
+        error_code = getattr(request.state, "error_code", "")
+        if error_code:
+            metrics.record_http_error(
+                route=route,
+                status_code=response.status_code,
+                code=error_code,
+            )
         HTTP_LOGGER.info(
             "http_request",
             extra={
@@ -83,7 +90,7 @@ def create_app(*, backend: ModelBackend, settings: Settings | None = None) -> Fa
                 "http_status_code": response.status_code,
                 "http_duration_ms": duration_ms,
                 "model_id": getattr(request.state, "model_id", ""),
-                "error_code": getattr(request.state, "error_code", ""),
+                "error_code": error_code,
                 "backend_id": type(
                     getattr(request.app.state, "backend", backend)
                 ).__name__,

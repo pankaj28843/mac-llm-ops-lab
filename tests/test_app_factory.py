@@ -345,6 +345,37 @@ def test_model_allowlist_rejects_disallowed_generation_without_backend_call() ->
     assert backend.generated_prompts == []
 
 
+def test_model_allowlist_failures_increment_bounded_http_error_metric() -> None:
+    backend = FakeBackend()
+    app = create_app(
+        backend=backend,
+        settings=Settings(model_allowlist=("allowed-model",)),
+    )
+
+    with TestClient(app) as client:
+        generation_response = client.post(
+            "/v1/chat/completions",
+            json={
+                "model": "blocked-model",
+                "messages": [{"role": "user", "content": "secret prompt"}],
+                "stream": False,
+            },
+        )
+        metrics_response = client.get("/metrics/snapshot")
+
+    assert generation_response.status_code == 404
+    assert metrics_response.status_code == 200
+    assert metrics_response.json()["http_errors_total"] == [
+        {
+            "route": "/v1/chat/completions",
+            "status_code": "404",
+            "code": "model_not_allowed",
+            "count": 1,
+        }
+    ]
+    assert "secret prompt" not in metrics_response.text
+
+
 def test_http_request_log_uses_bounded_fields_without_prompt_text(caplog) -> None:
     caplog.set_level(logging.INFO, logger="mac_llm_ops_lab.http")
     backend = FakeBackend()
@@ -421,6 +452,7 @@ def test_metrics_snapshot_uses_bounded_labels_without_prompt_text() -> None:
         "tokens_generated_total": [
             {"model": "fake-local-model", "count": 5},
         ],
+        "http_errors_total": [],
         "backend_generation_errors_total": [],
         "stream_errors_total": [],
     }
