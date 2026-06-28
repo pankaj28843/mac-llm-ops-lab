@@ -179,12 +179,17 @@ def test_open_webui_docs_describe_compose_and_host_connection_contract() -> None
         "ENABLE_OLLAMA_API=False",
         "host.docker.internal",
         "http://localhost:23000",
+        "http://127.0.0.1:23001",
         "http://localhost:28000",
+        "http://127.0.0.1:28020/v1",
         "/v1/models",
         "/v1/chat/completions",
         "temperature",
         "max_completion_tokens",
         "Do not commit real provider keys",
         "artifacts/runtime/2026-06-28T163030+0200-open-webui/",
+        "artifacts/runtime/2026-06-28T174936+0200-open-webui-native-backend/",
+        "Open WebUI background generation triggered one",
+        "64 output tokens",
     ):
         assert required in text

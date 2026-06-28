@@ -25,10 +25,14 @@ def test_runtime_stack_docs_define_static_and_runtime_boundaries() -> None:
         "Model-Backed Project API Smoke",
         "artifacts/runtime/2026-06-28T153000+0200-model-backed-api-e2e/",
         "artifacts/runtime/2026-06-28T173605+0200-vllm-mlx-phoenix-real-backend/",
+        "artifacts/runtime/2026-06-28T174936+0200-open-webui-native-backend/",
         "MAC_LLM_OPS_BACKEND_KIND=openai-compatible",
         "VLLM_MLX_PORT=28100",
         "API_PORT=28020",
+        "127.0.0.1:23001",
+        "host.docker.internal:28020/v1",
         "Apple Silicon backend",
+        "fuller benchmark workload",
         "not complete",
     ):
         assert required in text

@@ -22,6 +22,10 @@ The relevant Open WebUI contract is protocol-oriented:
   stack the API service URL is `http://api:8000/v1`; from a standalone Open
   WebUI container targeting a host process, use `host.docker.internal`. From
   the host browser, the default Compose URL is `http://localhost:23000`.
+  A standalone native-backend proof can bind Open WebUI on
+  `http://127.0.0.1:23001` while it targets
+  `http://127.0.0.1:28020/v1` through
+  `http://host.docker.internal:28020/v1` from inside the container.
 
 ## Compose Configuration
 
@@ -83,7 +87,7 @@ standard generation parameters to an OpenAI-compatible native backend such as
 ## Runtime Proof
 
 Open WebUI workflow integration is complete for the Docker Compose fake-backend
-stack. The current saved evidence bundle is:
+stack. The saved fake-backend evidence bundle is:
 
 ```text
 artifacts/runtime/2026-06-28T163030+0200-open-webui/
@@ -100,5 +104,48 @@ That bundle shows:
   that should stay private, local home paths, model cache contents, or database
   files.
 
-Open WebUI still needs a separate proof against the native `vllm-mlx` backend
-before real-backend UX performance or cancellation behavior is claimed.
+Open WebUI workflow integration is also runtime-proven against the native
+`vllm-mlx` backend through this repo's model-backed API. The saved native
+evidence bundle is:
+
+```text
+artifacts/runtime/2026-06-28T174936+0200-open-webui-native-backend/
+```
+
+That proof used a separate high-port container so the Compose fake-backend UI
+on `23000` stayed untouched:
+
+```bash
+docker run -d \
+  --name mac-llm-ops-open-webui-native-174936 \
+  -p 127.0.0.1:23001:8080 \
+  -e ENABLE_PERSISTENT_CONFIG=False \
+  -e ENABLE_OLLAMA_API=False \
+  -e OPENAI_API_BASE_URLS=http://host.docker.internal:28020/v1 \
+  -e OPENAI_API_KEYS=local-dev-placeholder \
+  -e WEBUI_AUTH=False \
+  ghcr.io/open-webui/open-webui:main
+```
+
+The native proof shows:
+
+- Open WebUI was healthy and reachable at `http://127.0.0.1:23001`.
+- Open WebUI discovered `mlx-community/Qwen3-0.6B-8bit`.
+- Headed CDP submitted a chat through Open WebUI, and redacted network
+  evidence shows `POST /api/chat/completions` returned 200 for that model.
+- This repo's API on `http://127.0.0.1:28020/v1` and the native backend on
+  `127.0.0.1:28100` both logged successful chat requests.
+- API metrics showed `/v1/models` and `/v1/chat/completions` counts increased,
+  and `tokens_generated_total` reached 151 for the native model.
+- Phoenix spans after the saved watermark include `POST /v1/chat/completions`
+  200, `gen_ai.stream`, `gen_ai.chat`, scheduler dispatch, and model/token
+  attributes for `mlx-community/Qwen3-0.6B-8bit`.
+
+Known caveats from the proof:
+
+- Open WebUI background generation triggered one `/v1/chat/completions` 502
+  after the successful foreground chat. The error is captured in metrics and
+  Phoenix as `backend_generation_failed`.
+- The tiny Qwen3 run is capped at 64 output tokens, so Open WebUI rendered a
+  completed reasoning block with little visible final-answer text. Do not use
+  this smoke as a UX quality or performance benchmark.

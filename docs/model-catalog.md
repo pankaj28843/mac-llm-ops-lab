@@ -64,5 +64,4 @@ operator decision.
 ## Completion Boundary
 
 This gate satisfies the catalog/download-approval part of slice 10. It does not
-complete benchmark qualification, Open WebUI-native workflow, or Mac Studio
-cluster proof.
+complete fuller benchmark qualification or Mac Studio cluster proof.

@@ -52,9 +52,8 @@ collisions with common developer services.
 Evidence is saved under the ignored
 `artifacts/runtime/2026-06-28T145945+0200-e2e/` bundle.
 
-This is not yet full production proof: benchmark qualification,
-Open WebUI-native workflow, MkDocs, cluster routing, and release/no-leak checks
-are still pending.
+This is not yet full production proof: fuller benchmark qualification, MkDocs,
+cluster routing, and release/no-leak checks are still pending.
 PostgreSQL persistence now has
 SQLAlchemy/Alembic code and a local migration plus sample insert/read proof
 under ignored `artifacts/runtime/2026-06-28T154545+0200-postgres-persistence/`.
@@ -108,6 +107,15 @@ Open WebUI was recreated with `ENABLE_OLLAMA_API=False`, showed
 `fake-local-model`, submitted a browser chat, and rendered the fake-backend
 response. Evidence is saved under ignored
 `artifacts/runtime/2026-06-28T163030+0200-open-webui/`.
+Open WebUI is also runtime-proven against the native `vllm-mlx` model-backed
+API path: a separate container on `127.0.0.1:23001` targeted
+`http://host.docker.internal:28020/v1`, discovered
+`mlx-community/Qwen3-0.6B-8bit`, submitted chat, and produced project API,
+backend, metrics, and Phoenix evidence. That evidence is saved under ignored
+`artifacts/runtime/2026-06-28T174936+0200-open-webui-native-backend/`.
+The native proof includes caveats for one Open WebUI background-generation 502
+and the 64-token Qwen3 smoke's limited visible answer text; it is connectivity
+and trace proof, not a production UX/performance benchmark.
 
 See `docs/runtime-stack.md` for the static-vs-runtime boundary before running
 any Docker services.

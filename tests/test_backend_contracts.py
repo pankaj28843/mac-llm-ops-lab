@@ -234,6 +234,7 @@ def test_backend_contract_docs_describe_metrics_and_benchmark_boundaries() -> No
         "vllm_mlx_metal_memory_bytes",
         "vllm-mlx bench-serve",
         "validated:false",
-        "Open WebUI against the native backend remains separate",
+        "Open WebUI against the native backend is now runtime-proven",
+        "fuller production benchmark remains separate",
     ):
         assert required in text

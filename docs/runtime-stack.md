@@ -25,6 +25,9 @@ The repo currently has:
   chat, streaming, and cancelled stream spans
 - one Open WebUI workflow proof where the UI discovered `fake-local-model`,
   submitted chat, and rendered a fake-backend response through the Compose API
+- one Open WebUI workflow proof where the UI discovered
+  `mlx-community/Qwen3-0.6B-8bit`, submitted chat, and reached the native
+  `vllm-mlx` backend through this repo's model-backed API
 
 The Apple Silicon backend is intentionally native and gated. It is not a
 Compose service yet. The API can be switched from the fake backend to a native
@@ -33,7 +36,7 @@ first candidate is `vllm-mlx`. Future native starts go through
 `mac_llm_ops_lab.model_catalog`, which requires a cataloged model,
 explicit `MAC_LLM_OPS_MODEL_DOWNLOAD_APPROVED=true`, ignored cache policy, and a
 passing memory preflight. The backend slice still needs
-Open WebUI-native workflow and benchmark qualification before completion.
+fuller benchmark workload qualification before production performance claims.
 
 ## Safe Static Checks
 
@@ -92,9 +95,9 @@ The proof includes:
 - Open WebUI healthy container and root HTML on the mapped local UI port
 - Open WebUI default embedding asset download into its Docker volume
 
-Open WebUI root reachability is proven; its backend API probes returned `401`
-for unauthenticated direct curl calls. A browser workflow or authenticated API
-contract is still needed before claiming Open WebUI chat workflow integration.
+Open WebUI root reachability is proven here only. Later browser workflow proof
+for fake and native backends is recorded in the Open WebUI workflow sections
+below.
 
 ## vllm-mlx Standalone Smoke
 
@@ -166,7 +169,8 @@ It includes project API `GET /live`, `GET /ready`, `GET /v1/models`,
 non-streaming `POST /v1/chat/completions`, streaming
 `POST /v1/chat/completions`, project API `GET /metrics/snapshot`, and the
 backend `/metrics` head. The API adapter path is now code-backed and tested;
-Open WebUI against the real backend and benchmark proof remain separate gates.
+Open WebUI against the real backend is proven separately below, while fuller
+benchmark proof remains a separate gate.
 
 ## Real-Backend Phoenix Trace Proof
 
@@ -245,6 +249,36 @@ API logs showing Open WebUI's container calling `GET /v1/models` and
 `POST /v1/chat/completions`, and a clean publish-safety scan over the saved
 evidence.
 
+Open WebUI is also proven against the native model-backed path. A separate
+standalone container ran on `http://127.0.0.1:23001` with:
+
+```text
+OPENAI_API_BASE_URLS=http://host.docker.internal:28020/v1
+OPENAI_API_KEYS=local-dev-placeholder
+WEBUI_AUTH=False
+ENABLE_PERSISTENT_CONFIG=False
+ENABLE_OLLAMA_API=False
+```
+
+The saved native-backend evidence bundle is under:
+
+```text
+artifacts/runtime/2026-06-28T174936+0200-open-webui-native-backend/
+```
+
+That proof includes direct API checks against `http://127.0.0.1:28020/v1`,
+native backend checks against `127.0.0.1:28100`, Open WebUI health/root HTML,
+headed-CDP browser evidence showing `mlx-community/Qwen3-0.6B-8bit`, redacted
+network evidence for `POST /api/chat/completions` through Open WebUI, project
+API and backend logs showing `/v1/chat/completions`, API metrics showing token
+generation, and Phoenix spans after the saved watermark for successful
+`POST /v1/chat/completions`, `gen_ai.stream`, and `gen_ai.chat`.
+
+Known caveats: Open WebUI background generation triggered one native
+`/v1/chat/completions` 502 after the successful foreground chat, and the
+64-token Qwen3 smoke rendered little visible final-answer text. Treat this as
+connectivity and trace proof, not as a UX quality or performance benchmark.
+
 ## Still Not Complete
 
 The local E2E proof is intentionally narrower than production readiness. These
@@ -254,8 +288,7 @@ claims are not complete yet:
 - production model-cache retention and cleanup policy beyond ignored
   `model-cache/`
 - production runtime-artifact retention policy beyond ignored `artifacts/runtime/`
-- benchmark qualification and Open WebUI-native workflow proof for the real
-  backend
+- fuller benchmark workload qualification for the real backend
 
 `secrets/`, `model-cache/`, traces, logs, raw benchmarks, database files, and
 runtime artifacts must stay out of git.

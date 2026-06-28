@@ -60,9 +60,11 @@ latency, throughput, Metal memory, cache hits/misses, and validation state.
 
 ## Boundaries
 
-This contract does not prove Open WebUI against the native backend or a fuller
-production benchmark. Those remain separate slice 10 gates.
+This contract does not prove a fuller production benchmark. The one-row
+`bench-serve` smoke proves command surface, parser shape, and basic backend
+latency/throughput evidence only.
 
 Current status: metrics and benchmark parsing are code-backed.
-
-Open WebUI against the native backend remains separate.
+Open WebUI against the native backend is now runtime-proven under
+`artifacts/runtime/2026-06-28T174936+0200-open-webui-native-backend/`; a
+fuller production benchmark remains separate.
