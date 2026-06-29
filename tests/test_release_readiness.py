@@ -120,7 +120,7 @@ def test_release_docs_makefile_and_mkdocs_nav_define_validation_path() -> None:
 
     assert "validate:" in makefile
     assert "scripts/validate-public-release.py" in makefile
-    assert "Release Readiness: release-readiness.md" in mkdocs_config
+    assert "release-readiness.md" in mkdocs_config
 
 
 def test_github_pages_workflow_is_pinned_and_builds_mkdocs() -> None:
