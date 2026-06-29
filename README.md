@@ -14,7 +14,7 @@ runtime evidence.
   with `uv run mkdocs build --strict` and deploys the `site/` artifact through
   GitHub Pages.
 
-This repository does not vendor the purchased book export, local model caches,
+This repository does not vendor purchased source exports, local model caches,
 traces, secrets, database files, logs, or private benchmark payloads.
 
 ## Current Boundary
@@ -120,10 +120,9 @@ Phoenix spans:
 
 ## Docs Map
 
-- [Development](docs/development.md): setup, validation, local smoke commands.
-- [Runtime Stack](docs/runtime-stack.md): static-vs-runtime boundary.
-- [Model Catalog](docs/model-catalog.md): MLX model approval and cache policy.
-- [Open WebUI](docs/open-webui.md): UI connection and visible-answer proof.
-- [Observability](docs/observability.md): Phoenix/OpenTelemetry prompt safety.
-- [Backend Contracts](docs/backend-contracts.md): metrics and benchmark evidence.
+- [Development](docs/development.md): setup, validation, native backend starts.
+- [Operations](docs/operations.md): Docker, Open WebUI, and Phoenix runbook.
+- [Design](docs/design.md): architecture, request, and evidence diagrams.
+- [Evidence](docs/evidence.md): runtime proofs, persistence, telemetry, and benchmarks.
+- [Mac Studio Cluster](docs/mac-studio-cluster.md): unsupported cluster claims.
 - [Release Readiness](docs/release-readiness.md): public repo and no-leak gate.

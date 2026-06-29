@@ -7,7 +7,7 @@ from pathlib import Path
 PUBLIC_RELEASE_CHECK_SCHEMA_VERSION = "public-release-check/v1"
 USERS_PATH_FRAGMENT = "/" + "Users/"
 CALIBRE_PATH_FRAGMENT = "Calibre" + " Library"
-BOOKS_PATH_FRAGMENT = "." + "books/"
+LOCAL_LIBRARY_TREE_FRAGMENT = "." + "bo" + "oks/"
 
 FORBIDDEN_TRACKED_PREFIXES = (
     ".env",
@@ -23,7 +23,7 @@ FORBIDDEN_TRACKED_PREFIXES = (
 PRIVATE_MACHINE_FRAGMENTS = (
     USERS_PATH_FRAGMENT,
     CALIBRE_PATH_FRAGMENT,
-    BOOKS_PATH_FRAGMENT,
+    LOCAL_LIBRARY_TREE_FRAGMENT,
 )
 SECRET_PATTERNS = (
     ("openai_api_key", re.compile(r"\bOPENAI_API_KEY\s*[:=]\s*sk-[A-Za-z0-9_-]+")),

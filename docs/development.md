@@ -56,5 +56,46 @@ API_PORT=28020 \
 scripts/run-model-backed-api.sh
 ```
 
-Do not run real-model work without the model catalog approval and memory
-preflight described in [Model Catalog](model-catalog.md).
+Do not run real-model work without the model download gate.
+
+## Model Download Gate
+
+The first approved local model is:
+
+```text
+model_id: mlx-community/Qwen3-0.6B-8bit
+backend_id: vllm-mlx
+revision: 11de96878523501bcaa86104e3c186de07ff9068
+license: apache-2.0
+library: mlx
+pipeline: text-generation
+cache_root: model-cache/huggingface
+estimated_runtime_total_gib: 4.7
+```
+
+Version/source-surface:
+
+- `https://huggingface.co/docs/transformers/en/model_sharing/`
+- `https://huggingface.co/docs/datasets/en/cache/`
+- `https://huggingface.co/mlx-community/Qwen3-0.6B-8bit`
+- primary `vllm-mlx` package metadata
+
+The CPU-safe gate denies by default with `runtime_not_authorized`:
+
+```bash
+uv run python -m mac_llm_ops_lab.model_catalog mlx-community/Qwen3-0.6B-8bit
+```
+
+To approve a local run or download, set the approval flag and save the report
+under ignored runtime artifacts:
+
+```bash
+MAC_LLM_OPS_MODEL_DOWNLOAD_APPROVED=true \
+MODEL_DOWNLOAD_GATE_REPORT=artifacts/runtime/vllm-mlx-model-download-gate.json \
+uv run python -m mac_llm_ops_lab.model_catalog mlx-community/Qwen3-0.6B-8bit
+```
+
+`scripts/run-vllm-mlx-backend.sh` invokes the same gate before `vllm-mlx serve`.
+The script defaults `MAC_LLM_OPS_MODEL_DOWNLOAD_APPROVED=false`, so future
+starts cannot silently download or run a cataloged model without an operator
+decision.

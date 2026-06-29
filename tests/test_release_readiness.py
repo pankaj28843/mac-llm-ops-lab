@@ -14,7 +14,7 @@ from mac_llm_ops_lab.release_readiness import (
 def test_public_release_scan_passes_for_placeholder_only_docs() -> None:
     report = scan_public_release_files(
         {
-            "docs/open-webui.md": "OPENAI_API_KEYS=local-dev-placeholder\n",
+            "docs/operations.md": "OPENAI_API_KEYS=local-dev-placeholder\n",
             "compose.yaml": "OPENAI_API_KEYS: local-dev-placeholder\n",
             "docs/index.md": "http://localhost:28000\n",
         },

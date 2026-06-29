@@ -36,12 +36,12 @@ source.
 
 | Claim | Evidence |
 | --- | --- |
-| Fake-backend API works in tests and Docker Compose. | `uv run pytest`; `docs/runtime-stack.md`; saved Docker E2E evidence. |
-| PostgreSQL persistence is code-backed. | `tests/test_persistence_*`; `docs/persistence.md`; Alembic migration proof. |
-| Phoenix/OpenTelemetry is prompt-safe by default. | `tests/test_observability.py`; `docs/observability.md`; Phoenix proof bundles. |
-| Open WebUI reaches the API. | `tests/test_open_webui_integration.py`; `docs/open-webui.md`; browser evidence bundles. |
-| `vllm-mlx` can run the approved small MLX model locally. | `docs/backends.md`; model catalog gate; runtime proof bundles. |
-| MacBook benchmark baseline exists. | `docs/benchmarks.md`; `docs/backend-contracts.md`; local benchmark bundle. |
+| Fake-backend API works in tests and Docker Compose. | `uv run pytest`; `docs/evidence.md`; saved Docker E2E evidence. |
+| PostgreSQL persistence is code-backed. | `tests/test_persistence_*`; `docs/evidence.md`; Alembic migration proof. |
+| Phoenix/OpenTelemetry is prompt-safe by default. | `tests/test_observability.py`; `docs/evidence.md`; Phoenix proof bundles. |
+| Open WebUI reaches the API. | `tests/test_open_webui_integration.py`; `docs/operations.md`; browser evidence bundles. |
+| `vllm-mlx` can run the approved small MLX model locally. | `docs/development.md`; model catalog gate; runtime proof bundles. |
+| MacBook benchmark baseline exists. | `docs/evidence.md`; local benchmark bundle. |
 | Mac Studio cluster readiness is not claimed. | `docs/mac-studio-cluster.md`; real multi-node proof remains pending. |
 
 ## Do Not Publish

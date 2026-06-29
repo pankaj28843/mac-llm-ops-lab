@@ -2,10 +2,13 @@ from pathlib import Path
 
 
 def test_observability_docs_describe_phoenix_and_prompt_safety() -> None:
-    docs_path = Path("docs/observability.md")
+    docs_path = Path("docs/evidence.md")
 
     assert docs_path.exists()
     text = docs_path.read_text(encoding="utf-8")
+    operations = Path("docs/operations.md").read_text(encoding="utf-8")
+    combined = "\n".join([text, operations])
+    combined_flat = " ".join(combined.split())
 
     for required in (
         "OpenTelemetry",
@@ -23,6 +26,6 @@ def test_observability_docs_describe_phoenix_and_prompt_safety() -> None:
         "artifacts/runtime/2026-06-28T160713+0200-phoenix-otel/",
         "artifacts/runtime/2026-06-28T173605+0200-vllm-mlx-phoenix-real-backend/",
         "openai-compatible",
-        "Phoenix trace receipt",
+        "Phoenix proof",
     ):
-        assert required in text
+        assert required in combined_flat

@@ -1,8 +1,22 @@
+import re
 from pathlib import Path
+
+import yaml
+
+DOCS_DIR = Path("docs")
 
 
 def _read(path: str) -> str:
     return Path(path).read_text(encoding="utf-8")
+
+
+def _mkdocs_nav_pages() -> list[str]:
+    config = yaml.safe_load(Path("mkdocs.yml").read_text(encoding="utf-8"))
+    pages = []
+    for item in config["nav"]:
+        assert isinstance(item, dict)
+        pages.extend(item.values())
+    return pages
 
 
 def test_root_docs_are_short_routers_to_served_docs() -> None:
@@ -32,30 +46,28 @@ def test_root_docs_are_short_routers_to_served_docs() -> None:
     assert "20000-50000" in agents_text
 
 
-def test_mkdocs_config_serves_learning_docs_with_explicit_nav() -> None:
-    config = _read("mkdocs.yml")
+def test_mkdocs_config_serves_lean_learning_docs_nav() -> None:
+    config = yaml.safe_load(Path("mkdocs.yml").read_text(encoding="utf-8"))
+    pages = _mkdocs_nav_pages()
 
-    for required in (
-        "site_name: Mac LLM Ops Lab",
-        "docs_dir: docs",
-        "repo_url: https://github.com/pankaj28843/mac-llm-ops-lab",
-        "theme:",
-        "name: mkdocs",
-        "nav:",
-        "Home: index.md",
-        "Vision: vision.md",
-        "Requirements: requirements.md",
-        "Design: design.md",
-        "Development: development.md",
-        "Operations: operations.md",
-        "Backends: backends.md",
-        "Benchmarks: benchmarks.md",
-        "Mac Studio Cluster: mac-studio-cluster.md",
-        "Runtime Stack: runtime-stack.md",
-        "Observability: observability.md",
-        "Open WebUI: open-webui.md",
-    ):
-        assert required in config
+    assert config["site_name"] == "Mac LLM Ops Lab"
+    assert config["docs_dir"] == "docs"
+    assert config["repo_url"] == "https://github.com/pankaj28843/mac-llm-ops-lab"
+    assert config["theme"]["name"] == "mkdocs"
+    assert pages == [
+        "index.md",
+        "vision.md",
+        "requirements.md",
+        "design.md",
+        "development.md",
+        "operations.md",
+        "evidence.md",
+        "mac-studio-cluster.md",
+        "release-readiness.md",
+    ]
+    assert len(pages) <= 9
+    for page in pages:
+        assert (DOCS_DIR / page).exists()
 
 
 def test_learning_docs_cover_clone_and_run_path_without_private_paths() -> None:
@@ -71,13 +83,14 @@ def test_learning_docs_cover_clone_and_run_path_without_private_paths() -> None:
         "design.md",
         "development.md",
         "operations.md",
-        "backends.md",
-        "benchmarks.md",
+        "evidence.md",
         "mac-studio-cluster.md",
+        "release-readiness.md",
     ):
         assert required_page in docs
 
     combined = "\n".join(docs.values())
+    combined_flat = " ".join(combined.split())
     for required in (
         "uv sync",
         "uv run pytest",
@@ -96,11 +109,14 @@ def test_learning_docs_cover_clone_and_run_path_without_private_paths() -> None:
         "mlx-community/Qwen3-0.6B-8bit",
         "Mac Studio",
         "Do not extrapolate",
+        "Repository",
+        "Unit of Work",
+        "mermaid",
         "independent Mac-first learning lab",
         "reference-only background",
         "External references",
     ):
-        assert required in combined
+        assert required in combined_flat
 
     public_learning_docs = "\n".join(
         text for name, text in docs.items() if name != "release-readiness.md"
@@ -108,7 +124,7 @@ def test_learning_docs_cover_clone_and_run_path_without_private_paths() -> None:
     forbidden_fragments = (
         "/" + "Users/",
         "Calibre" + " Library",
-        "." + "books/",
+        "." + "bo" + "oks/",
         "secrets/postgres_password.txt contains",
         "HF_TOKEN",
         "OPENAI_API_KEY=",
@@ -124,6 +140,27 @@ def test_learning_docs_cover_clone_and_run_path_without_private_paths() -> None:
         "https://github.com/pankaj28843/" + "mac-llm-ops-lab",
     ):
         assert stale_branding not in public_learning_docs
+
+
+def test_markdown_local_links_resolve() -> None:
+    markdown_files = [
+        Path("README.md"),
+        Path("AGENTS.md"),
+        Path("vision.md"),
+        Path("requirements.md"),
+        Path("design.md"),
+        *sorted(DOCS_DIR.rglob("*.md")),
+    ]
+    link_pattern = re.compile(r"!?\[[^\]]*]\(([^)]+)\)")
+
+    for path in markdown_files:
+        text = path.read_text(encoding="utf-8")
+        for raw_target in link_pattern.findall(text):
+            target = raw_target.split()[0].split("#", 1)[0]
+            if not target or "://" in target or target.startswith("mailto:"):
+                continue
+            resolved = (path.parent / target).resolve()
+            assert resolved.exists(), f"{path} links to missing {raw_target}"
 
 
 def test_readme_points_to_current_native_openwebui_answer_proof() -> None:
@@ -142,30 +179,7 @@ def test_readme_points_to_current_native_openwebui_answer_proof() -> None:
     assert "limited visible answer text" not in readme
 
 
-def test_readme_honesty_boundary_matches_current_release_status() -> None:
-    readme = " ".join(_read("README.md").split())
-
-    for stale in (
-        "fuller benchmark qualification, MkDocs, cluster routing, and "
-        "release/no-leak checks are still pending",
-        "MkDocs, cluster routing, and release/no-leak checks are still pending",
-        "release/no-leak checks are still pending",
-    ):
-        assert stale not in readme
-
-    for required in (
-        "MacBook proof, fake-backend Docker proof, Open WebUI proof, "
-        "Phoenix tracing, MkDocs, release/no-leak checks, and benchmark "
-        "structure are complete for local learning",
-        "Mac Studio cluster capacity, failover, and multi-user performance "
-        "remain pending until real cluster evidence exists",
-        "test-double cluster routing contract is code-backed",
-        "real multi-node proof",
-    ):
-        assert required in readme
-
-
-def test_readme_points_to_published_docs_and_pages_workflow() -> None:
+def test_readme_points_to_published_docs_and_current_docs_map() -> None:
     readme = _read("README.md")
 
     for required in (
@@ -174,6 +188,13 @@ def test_readme_points_to_published_docs_and_pages_workflow() -> None:
         "Publish Docs",
         "uv run mkdocs build --strict",
         "make validate",
+        "docs/development.md",
+        "docs/operations.md",
+        "docs/design.md",
+        "docs/evidence.md",
+        "docs/mac-studio-cluster.md",
+        "docs/release-readiness.md",
+        "real multi-node proof",
     ):
         assert required in readme
 

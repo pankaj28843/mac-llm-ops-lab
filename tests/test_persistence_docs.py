@@ -2,7 +2,7 @@ from pathlib import Path
 
 
 def test_persistence_docs_describe_migration_and_runtime_evidence() -> None:
-    docs_path = Path("docs/persistence.md")
+    docs_path = Path("docs/evidence.md")
 
     assert docs_path.exists()
     text = docs_path.read_text(encoding="utf-8")

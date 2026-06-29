@@ -14,9 +14,8 @@ material, or vendor-specific deployment shape.
    Compose validation.
 5. Follow [Operations](operations.md) to run the local Docker stack on high
    local ports.
-6. Use [Backends](backends.md), [Observability](observability.md), and
-   [Benchmarks](benchmarks.md) to connect API calls to model runtime behavior,
-   Phoenix traces, and benchmark evidence.
+6. Use [Evidence](evidence.md) to connect API calls to model runtime behavior,
+   Phoenix traces, persistence, benchmark evidence, and publish-safety scans.
 7. Read [Mac Studio Cluster](mac-studio-cluster.md) before making any cluster
    claim.
 8. Run [Release Readiness](release-readiness.md) before publishing or handing

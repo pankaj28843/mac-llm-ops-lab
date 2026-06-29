@@ -8,6 +8,9 @@ theme:
   color_mode: auto
   user_color_mode_toggle: true
   nav_style: primary
+extra_javascript:
+  - https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js
+  - assets/mermaid-init.js
 nav:
   - Home: index.md
   - Vision: vision.md
@@ -15,13 +18,6 @@ nav:
   - Design: design.md
   - Development: development.md
   - Operations: operations.md
-  - Backends: backends.md
-  - Benchmarks: benchmarks.md
+  - Evidence: evidence.md
   - Mac Studio Cluster: mac-studio-cluster.md
   - Release Readiness: release-readiness.md
-  - Runtime Stack: runtime-stack.md
-  - Persistence: persistence.md
-  - Observability: observability.md
-  - Open WebUI: open-webui.md
-  - Model Catalog: model-catalog.md
-  - Backend Contracts: backend-contracts.md

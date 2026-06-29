@@ -20,9 +20,9 @@ The default local endpoints are:
 - OTLP gRPC: `localhost:24317`
 - Phoenix Prometheus: `http://localhost:29090`
 
-All host bindings stay in the `20000-50000` range. Override them with the
-Compose environment variables documented in [Runtime Stack](runtime-stack.md)
-when a local port is already in use.
+All host bindings stay in the `20000-50000` range. Container-internal URLs use
+service-native ports, such as `http://api:8000/v1` and
+`http://phoenix:6006/v1/traces`.
 
 ## Probes
 
@@ -34,8 +34,94 @@ curl -fsS http://localhost:28000/v1/models \
 curl -fsS http://localhost:26006/ >/dev/null
 ```
 
-Use [Observability](observability.md) to verify Phoenix spans and
-[Open WebUI](open-webui.md) to verify the UI workflow.
+## Open WebUI
+
+Version/source-surface: local `docsearch` tenant `openwebui` from
+`https://docs.openwebui.com`, fetched pages `OpenAI-Compatible / Open WebUI`,
+`Environment Variable Configuration / Open WebUI`, and
+`API Endpoints / Open WebUI`; local image version is `main`, so runtime smoke
+evidence is required before claiming workflow compatibility.
+
+Compose starts Open WebUI with environment-owned local configuration:
+
+```text
+OPENAI_API_BASE_URLS=http://api:8000/v1
+OPENAI_API_KEYS=local-dev-placeholder
+WEBUI_AUTH=False
+ENABLE_PERSISTENT_CONFIG=False
+ENABLE_OLLAMA_API=False
+```
+
+`OPENAI_API_KEYS` is a local placeholder because this repository's local API
+does not enforce provider authentication yet. Do not commit real provider keys.
+`ENABLE_PERSISTENT_CONFIG=False` keeps local restarts aligned with environment
+variables. `ENABLE_OLLAMA_API=False` disables the default Ollama probe.
+
+The relevant Open WebUI contract is protocol-oriented:
+
+- `GET /v1/models` is the model discovery path.
+- `POST /v1/chat/completions` is the chat path.
+- Chat requests may include standard parameters such as `temperature`,
+  `max_completion_tokens`, and streaming controls.
+
+Docker-hosted Open WebUI must use a container-reachable URL. In Compose it uses
+`http://api:8000/v1`; from a standalone Open WebUI container targeting a host
+API process, use `host.docker.internal`. From the host browser, the default
+Compose URL is `http://localhost:23000`.
+
+The native-backend proof used a standalone container on
+`http://127.0.0.1:23001` targeting this repo's host API through
+`http://host.docker.internal:28020/v1` while the host API listened on
+`http://127.0.0.1:28020/v1` and the native backend listened on
+`127.0.0.1:28100`.
+
+Current native Open WebUI runs must budget enough tokens for a visible final
+answer:
+
+```bash
+VLLM_MLX_MAX_TOKENS=512 \
+VLLM_MLX_MAX_REQUEST_TOKENS=1024 \
+VLLM_MLX_REASONING_PARSER=qwen3 \
+VLLM_MLX_DEFAULT_CHAT_TEMPLATE_KWARGS='{"enable_thinking": false}' \
+scripts/run-vllm-mlx-backend.sh
+```
+
+`vllm-mlx` with Qwen3 reasoning parsing may stream answer text under
+`delta.reasoning_content` when the normal `content` field is empty. The project
+API maps that to non-empty `delta.content` chunks so Open WebUI receives visible
+assistant text. The acceptance check is browser-visible: the answer must render
+in Open WebUI and the direct backend/API response must show that
+`finish_reason` is not `length`.
+
+Saved Open WebUI proof bundles:
+
+- `artifacts/runtime/2026-06-28T163030+0200-open-webui/`
+- `artifacts/runtime/2026-06-28T174936+0200-open-webui-native-backend/`
+- `artifacts/runtime/2026-06-28T195945+0200-open-webui-visible-answer-no-think/`
+
+## Phoenix
+
+Compose exports traces to:
+
+```text
+MAC_LLM_OPS_OTEL_ENABLED=true
+MAC_LLM_OPS_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://phoenix:6006/v1/traces
+MAC_LLM_OPS_PHOENIX_PROJECT_NAME=mac-llm-ops-lab-local
+```
+
+For a host-run API against the locally mapped Phoenix port:
+
+```bash
+MAC_LLM_OPS_OTEL_ENABLED=true \
+MAC_LLM_OPS_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://127.0.0.1:26006/v1/traces \
+MAC_LLM_OPS_PHOENIX_PROJECT_NAME=mac-llm-ops-lab-local \
+uv run uvicorn mac_llm_ops_lab.cli:app --host 127.0.0.1 --port 28020
+```
+
+Default telemetry does not capture prompts, completions, request bodies, HTTP
+headers, API keys, exception messages, local file paths, or model-cache paths.
+See [Evidence](evidence.md) for the runtime proof bundles and prompt-safety
+contract.
 
 ## Safety
 

@@ -107,7 +107,7 @@ def test_vllm_mlx_startup_script_runs_model_download_gate() -> None:
 
 
 def test_model_catalog_docs_describe_approval_and_source_evidence() -> None:
-    text = Path("docs/model-catalog.md").read_text(encoding="utf-8")
+    text = Path("docs/development.md").read_text(encoding="utf-8")
 
     for required in (
         "Version/source-surface",

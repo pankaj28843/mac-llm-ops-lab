@@ -179,10 +179,11 @@ def test_native_open_webui_launch_defaults_have_visible_answer_budget() -> None:
 
 
 def test_open_webui_docs_describe_compose_and_host_connection_contract() -> None:
-    docs_path = Path("docs/open-webui.md")
+    docs_path = Path("docs/operations.md")
 
     assert docs_path.exists()
     text = docs_path.read_text(encoding="utf-8")
+    text_flat = " ".join(text.split())
 
     for required in (
         "Version/source-surface",
@@ -213,9 +214,9 @@ def test_open_webui_docs_describe_compose_and_host_connection_contract() -> None
         "non-empty `delta.content` chunks",
         "artifacts/runtime/2026-06-28T195945+0200-open-webui-visible-answer-no-think/",
     ):
-        assert required in text
+        assert required in text_flat
 
-    assert "little visible final-answer text" not in text
+    assert "little visible final-answer text" not in text_flat
 
 
 def _shell_default(script: str, name: str) -> int:
