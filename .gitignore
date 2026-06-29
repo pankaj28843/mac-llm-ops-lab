@@ -18,6 +18,7 @@ site/
 # Local serving state and publish-sensitive artifacts.
 data/
 artifacts/
+tmp/
 benchmarks/raw/
 traces/
 model-cache/
