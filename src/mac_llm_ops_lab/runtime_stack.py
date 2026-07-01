@@ -13,6 +13,7 @@ def build_local_runtime_stack_plan() -> dict[str, object]:
         },
         "services": [
             _api_service(),
+            _docs_service(),
             _postgres_service(),
             _phoenix_service(),
             _open_webui_service(),
@@ -24,17 +25,9 @@ def build_local_runtime_stack_plan() -> dict[str, object]:
 def _api_service() -> dict[str, object]:
     return {
         "name": "api",
-        "runtime": "direct-process",
-        "command": [
-            "uv",
-            "run",
-            "uvicorn",
-            "mac_llm_ops_lab.cli:app",
-            "--host",
-            "0.0.0.0",
-            "--port",
-            "28000",
-        ],
+        "runtime": "docker",
+        "image": "mac-llm-ops-lab-api:local",
+        "build_target": "api",
         "ports": {"api": 28000},
         "environment": {
             "MAC_LLM_OPS_BACKEND_KIND": "${MAC_LLM_OPS_BACKEND_KIND:-fake}",
@@ -58,6 +51,24 @@ def _api_service() -> dict[str, object]:
             "phoenix": {"condition": "service_started"},
             "postgres": {"condition": "service_healthy"},
         },
+    }
+
+
+def _docs_service() -> dict[str, object]:
+    return {
+        "name": "docs",
+        "runtime": "docker",
+        "image": "mac-llm-ops-lab-docs:local",
+        "build_target": "docs",
+        "ports": {"docs": 28080, "container": 8000},
+        "command": [
+            "mkdocs",
+            "serve",
+            "--no-livereload",
+            "-a",
+            "0.0.0.0:8000",
+        ],
+        "depends_on": {},
     }
 
 
@@ -115,7 +126,7 @@ def _open_webui_service() -> dict[str, object]:
         "environment": {
             "ENABLE_PERSISTENT_CONFIG": "False",
             "ENABLE_OLLAMA_API": "False",
-            "OPENAI_API_BASE_URLS": "http://host.docker.internal:28000/v1",
+            "OPENAI_API_BASE_URLS": "http://api:8000/v1",
             "OPENAI_API_KEYS": "local-dev-placeholder",
             "WEBUI_AUTH": "False",
         },
@@ -130,7 +141,7 @@ def _apple_silicon_backend_service() -> dict[str, object]:
     return {
         "name": "apple-silicon-backend",
         "runtime": "direct-process",
-        "enabled_by_default": False,
+        "enabled_by_default": True,
         "candidate": "vllm-mlx",
         "gate": {
             "requires_explicit_authorization": True,

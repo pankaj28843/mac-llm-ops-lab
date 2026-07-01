@@ -21,6 +21,7 @@ def test_local_runtime_stack_plan_declares_real_services_without_side_effects() 
     services = {service["name"]: service for service in plan["services"]}
     assert set(services) == {
         "api",
+        "docs",
         "postgres",
         "phoenix",
         "open-webui",
@@ -60,24 +61,16 @@ def test_local_runtime_stack_plan_declares_real_services_without_side_effects() 
     assert open_webui["environment"] == {
         "ENABLE_PERSISTENT_CONFIG": "False",
         "ENABLE_OLLAMA_API": "False",
-        "OPENAI_API_BASE_URLS": "http://host.docker.internal:28000/v1",
+        "OPENAI_API_BASE_URLS": "http://api:8000/v1",
         "OPENAI_API_KEYS": "local-dev-placeholder",
         "WEBUI_AUTH": "False",
     }
     assert open_webui["volumes"] == {"open-webui-data": "/app/backend/data"}
 
     api = services["api"]
-    assert api["runtime"] == "direct-process"
-    assert api["command"] == [
-        "uv",
-        "run",
-        "uvicorn",
-        "mac_llm_ops_lab.cli:app",
-        "--host",
-        "0.0.0.0",
-        "--port",
-        "28000",
-    ]
+    assert api["runtime"] == "docker"
+    assert api["image"] == "mac-llm-ops-lab-api:local"
+    assert api["build_target"] == "api"
     assert api["ports"] == {"api": 28000}
     assert api["environment"] == {
         "MAC_LLM_OPS_BACKEND_KIND": "${MAC_LLM_OPS_BACKEND_KIND:-fake}",
@@ -101,9 +94,23 @@ def test_local_runtime_stack_plan_declares_real_services_without_side_effects() 
         "postgres": {"condition": "service_healthy"},
     }
 
+    docs = services["docs"]
+    assert docs["runtime"] == "docker"
+    assert docs["image"] == "mac-llm-ops-lab-docs:local"
+    assert docs["build_target"] == "docs"
+    assert docs["ports"] == {"docs": 28080, "container": 8000}
+    assert docs["command"] == [
+        "mkdocs",
+        "serve",
+        "--no-livereload",
+        "-a",
+        "0.0.0.0:8000",
+    ]
+    assert docs["depends_on"] == {}
+
     backend = services["apple-silicon-backend"]
     assert backend["runtime"] == "direct-process"
-    assert backend["enabled_by_default"] is False
+    assert backend["enabled_by_default"] is True
     assert backend["candidate"] == "vllm-mlx"
     assert backend["gate"] == {
         "requires_explicit_authorization": True,

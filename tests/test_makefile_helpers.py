@@ -52,7 +52,7 @@ def test_makefile_local_stack_targets_use_compose_yaml() -> None:
         assert expected_command in result.stdout
 
 
-def test_makefile_up_down_status_manage_docker_and_host_services() -> None:
+def test_makefile_up_down_status_manage_docker_and_native_backend() -> None:
     expectations = {
         "up": (
             "scripts/local-runtime.sh start-docker",
@@ -112,10 +112,7 @@ def test_local_runtime_script_manages_project_host_processes() -> None:
     assert script.stat().st_mode & 0o111
     for required in (
         "scripts/start-detached.py",
-        "uv run mkdocs serve",
-        "--no-livereload",
         "scripts/run-vllm-mlx-backend.sh",
-        "scripts/run-model-backed-api.sh",
         "MAC_LLM_OPS_START_TIMEOUT_SECONDS",
         "start-docker",
         "stop-managed",
@@ -129,6 +126,9 @@ def test_local_runtime_script_manages_project_host_processes() -> None:
         "MAC_LLM_OPS_DOWN_KILL_PORTS",
     ):
         assert required in text
+
+    assert 'start_service \\\n    "model-backed-api"' not in text
+    assert "uv run mkdocs serve" not in text
 
 
 def test_detached_launcher_starts_processes_in_new_sessions() -> None:

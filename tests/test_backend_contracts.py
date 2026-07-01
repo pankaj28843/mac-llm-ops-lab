@@ -289,7 +289,7 @@ def test_benchmark_artifact_manifest_is_json_safe_and_reproducible() -> None:
             "memory_gib": 36,
         },
         ports={
-            "api": 28020,
+            "api": 28000,
             "backend": 28100,
             "phoenix": 26006,
             "otlp_grpc": 24317,
@@ -338,7 +338,7 @@ def test_benchmark_artifact_manifest_is_json_safe_and_reproducible() -> None:
             "memory_gib": 36,
         },
         "ports": {
-            "api": 28020,
+            "api": 28000,
             "backend": 28100,
             "phoenix": 26006,
             "otlp_grpc": 24317,
@@ -374,7 +374,7 @@ def test_benchmark_artifact_manifest_rejects_malformed_bundles() -> None:
         "model_id": "mlx-community/Qwen3-0.6B-8bit",
         "model_revision": "11de96878523501bcaa86104e3c186de07ff9068",
         "host": {"os": "macOS", "chip": "M3 Max", "memory_gib": 36},
-        "ports": {"api": 28020, "backend": 28100},
+        "ports": {"api": 28000, "backend": 28100},
         "env": {"VLLM_MLX_BENCH_PROMPTS": "conversational_sharegpt"},
         "no_leak_scan": {
             "path": (
@@ -434,7 +434,7 @@ def test_benchmark_artifact_manifest_persists_and_loads_under_artifact_dir(
         model_id="mlx-community/Qwen3-0.6B-8bit",
         model_revision="11de96878523501bcaa86104e3c186de07ff9068",
         host={"os": "macOS", "chip": "M3 Max", "memory_gib": 36},
-        ports={"api": 28020, "backend": 28100},
+        ports={"api": 28000, "backend": 28100},
         env={"VLLM_MLX_BENCH_PROMPTS": "conversational_sharegpt"},
         no_leak_scan={
             "path": (

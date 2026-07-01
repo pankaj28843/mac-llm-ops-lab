@@ -170,7 +170,7 @@ def test_readme_keeps_native_openwebui_run_commands_without_artifact_index() -> 
         "VLLM_MLX_REASONING_PARSER=qwen3",
         "VLLM_MLX_DEFAULT_CHAT_TEMPLATE_KWARGS='{\"enable_thinking\": false}'",
         "MAC_LLM_OPS_BACKEND_KIND=openai-compatible",
-        "API_PORT=28020",
+        "docker compose -f compose.yaml up -d --build api",
     ):
         assert required in readme
 

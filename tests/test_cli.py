@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from fastapi.testclient import TestClient
 
 from mac_llm_ops_lab.cli import build_app, build_backend
@@ -72,13 +70,3 @@ def test_cli_build_backend_selects_openai_compatible_backend_from_settings() -> 
 
     assert isinstance(backend, OpenAICompatibleBackend)
     assert backend.base_url == "http://127.0.0.1:8100/v1"
-
-
-def test_model_backed_api_script_defaults_to_high_local_ports() -> None:
-    script = Path("scripts/run-model-backed-api.sh").read_text(encoding="utf-8")
-
-    assert 'API_PORT="${API_PORT:-28020}"' in script
-    assert (
-        'export MAC_LLM_OPS_OPENAI_BASE_URL="${MAC_LLM_OPS_OPENAI_BASE_URL:-'
-        'http://127.0.0.1:28100/v1}"'
-    ) in script

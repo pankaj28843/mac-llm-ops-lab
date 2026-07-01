@@ -2,7 +2,8 @@
 
 ## Local Docker Stack
 
-The local stack runs PostgreSQL, Phoenix, Open WebUI, and the fake-backend API.
+The local stack runs PostgreSQL, Phoenix, Open WebUI, the API, and the docs
+site in Docker.
 Create a local placeholder password file before starting Compose:
 
 ```bash
@@ -21,18 +22,18 @@ make down
 ```
 
 `make up` starts Docker, native `vllm-mlx` with
-`mlx-community/Qwen3-0.6B-8bit`, the model-backed API, Compose configured for
-the OpenAI-compatible backend, and the project-managed non-Docker docs server.
-`make down` stops project-managed host processes first,
-including native `vllm-mlx` and model-backed API processes when present, stops
-matching `vllm`/MLX containers, brings Compose down, clears repo-specific host
-listeners, and leaves Docker Desktop running for other projects. The helpers
-create the ignored local password file with a placeholder value when it is
-missing.
+`mlx-community/Qwen3-0.6B-8bit`, then starts Compose configured for the
+OpenAI-compatible backend. The API, docs site, PostgreSQL, Phoenix, and Open
+WebUI run in Docker. `make down` stops the native `vllm-mlx` host process,
+stops matching `vllm`/MLX containers, brings Compose down, clears
+repo-specific host listeners, and leaves Docker Desktop running for other
+projects. The helpers create the ignored local password file with a placeholder
+value when it is missing.
 
 The default local endpoints are:
 
 - API: `http://localhost:28000`
+- Docs: `http://localhost:28080`
 - Open WebUI: `http://localhost:23000`
 - Phoenix: `http://localhost:26006`
 - PostgreSQL: `localhost:25432`
@@ -82,11 +83,9 @@ Docker-hosted Open WebUI must use a container-reachable URL. In Compose it uses
 API process, use `host.docker.internal`. From the host browser, the default
 Compose URL is `http://localhost:23000`.
 
-The native-backend proof used a standalone container on
-`http://127.0.0.1:23001` targeting this repo's host API through
-`http://host.docker.internal:28020/v1` while the host API listened on
-`http://127.0.0.1:28020/v1` and the native backend listened on
-`127.0.0.1:28100`.
+The native-backend proof uses the Compose Open WebUI container targeting this
+repo's Compose API at `http://api:8000/v1`; the API container reaches the
+host-only native backend through `http://host.docker.internal:28100/v1`.
 
 Current native Open WebUI runs must budget enough tokens for a visible final
 answer:
@@ -116,14 +115,10 @@ MAC_LLM_OPS_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://phoenix:6006/v1/traces
 MAC_LLM_OPS_PHOENIX_PROJECT_NAME=mac-llm-ops-lab-local
 ```
 
-For a host-run API against the locally mapped Phoenix port:
+From the host, the mapped Phoenix traces endpoint is
+`http://127.0.0.1:26006/v1/traces` for local inspection tools.
 
-```bash
-MAC_LLM_OPS_OTEL_ENABLED=true \
-MAC_LLM_OPS_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://127.0.0.1:26006/v1/traces \
-MAC_LLM_OPS_PHOENIX_PROJECT_NAME=mac-llm-ops-lab-local \
-uv run uvicorn mac_llm_ops_lab.cli:app --host 127.0.0.1 --port 28020
-```
+The API runs in Compose; do not start a second host API for the local stack.
 
 Default telemetry does not capture prompts, completions, request bodies, HTTP
 headers, API keys, exception messages, local file paths, or model-cache paths.

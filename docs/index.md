@@ -28,12 +28,12 @@ uv run ruff check .
 uv run ruff format --check .
 docker compose -f compose.yaml config --format json
 uv run mkdocs build --strict
-uv run mkdocs serve -a 127.0.0.1:28080
+docker compose -f compose.yaml up -d --build docs
 ```
 
 The default local service ports are intentionally high: API
 `http://localhost:28000`, Open WebUI `http://localhost:23000`, Phoenix
 `http://localhost:26006`, PostgreSQL `localhost:25432`, OTLP gRPC
-`localhost:24317`, Phoenix Prometheus `http://localhost:29090`, native
-`vllm-mlx` `http://127.0.0.1:28100`, and native model-backed API
-`http://127.0.0.1:28020`.
+`localhost:24317`, Phoenix Prometheus `http://localhost:29090`, docs
+`http://localhost:28080`, and native `vllm-mlx`
+`http://127.0.0.1:28100`.

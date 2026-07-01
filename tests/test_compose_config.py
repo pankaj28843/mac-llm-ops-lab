@@ -32,10 +32,11 @@ def test_compose_yaml_is_valid_and_keeps_real_backend_native_gated() -> None:
     config = json.loads(result.stdout)
     services = config["services"]
 
-    assert {"api", "postgres", "phoenix", "open-webui"} <= set(services)
+    assert {"api", "docs", "postgres", "phoenix", "open-webui"} <= set(services)
     assert "apple-silicon-backend" not in services
 
     api = services["api"]
+    assert api["build"]["target"] == "api"
     assert api["environment"]["MAC_LLM_OPS_BACKEND_KIND"] == "fake"
     assert api["environment"]["MAC_LLM_OPS_OPENAI_BASE_URL"] == (
         "http://host.docker.internal:28100/v1"
@@ -48,6 +49,10 @@ def test_compose_yaml_is_valid_and_keeps_real_backend_native_gated() -> None:
     assert api["environment"]["MAC_LLM_OPS_PHOENIX_PROJECT_NAME"] == (
         "mac-llm-ops-lab-local"
     )
+
+    docs = services["docs"]
+    assert docs["build"]["target"] == "docs"
+    assert docs["image"] == "mac-llm-ops-lab-docs:local"
 
     postgres = services["postgres"]
     assert postgres["image"] == "postgres:16"
@@ -78,6 +83,7 @@ def test_compose_yaml_is_valid_and_keeps_real_backend_native_gated() -> None:
     assert published_ports["postgres"] == [25432]
     assert published_ports["phoenix"] == [24317, 26006, 29090]
     assert published_ports["api"] == [28000]
+    assert published_ports["docs"] == [28080]
     assert published_ports["open-webui"] == [23000]
     assert all(
         20000 <= port <= 50000
@@ -104,4 +110,5 @@ def test_compose_host_ports_are_overridable_for_local_collisions() -> None:
     assert "${OTLP_GRPC_HOST_PORT:-24317}:4317" in compose_text
     assert "${PHOENIX_PROMETHEUS_HOST_PORT:-29090}:9090" in compose_text
     assert "${API_HOST_PORT:-28000}:8000" in compose_text
+    assert "${DOCS_HOST_PORT:-28080}:8000" in compose_text
     assert "${OPEN_WEBUI_HOST_PORT:-23000}:8080" in compose_text

@@ -22,9 +22,8 @@ def test_runtime_stack_docs_define_static_and_runtime_boundaries() -> None:
         "Native Backend Smoke",
         "MAC_LLM_OPS_BACKEND_KIND=openai-compatible",
         "VLLM_MLX_PORT=28100",
-        "API_PORT=28020",
-        "127.0.0.1:23001",
-        "host.docker.internal:28020/v1",
+        "docker compose -f compose.yaml up -d --build api",
+        "host.docker.internal:28100/v1",
     ):
         assert required in combined
 

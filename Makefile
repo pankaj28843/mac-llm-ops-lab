@@ -23,12 +23,12 @@ validate: ensure-local-runtime-dirs ## Run tests, linting, docs, Compose config,
 	uv run mkdocs build --strict
 	uv run python scripts/validate-public-release.py --output $(PUBLIC_RELEASE_REPORT)
 
-up: ensure-local-runtime-dirs ## Start Docker plus project-managed host services.
+up: ensure-local-runtime-dirs ## Start native vllm-mlx plus the Docker stack.
 	$(LOCAL_RUNTIME) start-docker
 	MAC_LLM_OPS_MODEL_DOWNLOAD_APPROVED=true MODEL_ID=$(MODEL_ID) $(LOCAL_RUNTIME) start
 	MAC_LLM_OPS_BACKEND_KIND=openai-compatible MAC_LLM_OPS_MODEL_ALLOWLIST=$(MODEL_ID) $(COMPOSE) up -d --build
 
-down: ensure-local-runtime-dirs ## Stop project-managed host services and Docker stack.
+down: ensure-local-runtime-dirs ## Stop native vllm-mlx and the Docker stack.
 	$(LOCAL_RUNTIME) stop-managed
 	$(LOCAL_RUNTIME) stop-docker-vllm
 	-$(COMPOSE) down --remove-orphans
@@ -38,7 +38,7 @@ build: ensure-local-runtime-dirs ## Build the local Docker images.
 	$(LOCAL_RUNTIME) start-docker
 	$(COMPOSE) build
 
-status: ensure-local-runtime-dirs ## Show Docker and project-managed host service status.
+status: ensure-local-runtime-dirs ## Show Docker and project-managed host runtime status.
 	-$(COMPOSE) ps
 	$(LOCAL_RUNTIME) status
 

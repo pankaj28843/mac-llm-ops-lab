@@ -5,13 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PID_DIR="${MAC_LLM_OPS_PID_DIR:-$ROOT_DIR/artifacts/runtime/pids}"
 LOG_DIR="${MAC_LLM_OPS_LOG_DIR:-$ROOT_DIR/artifacts/runtime/logs}"
 
-DOCS_HOST="${DOCS_HOST:-127.0.0.1}"
-DOCS_PORT="${DOCS_PORT:-28080}"
-DOCS_PID_FILE="${DOCS_PID_FILE:-$PID_DIR/mkdocs.pid}"
-NATIVE_API_PID_FILE="${NATIVE_API_PID_FILE:-$PID_DIR/model-backed-api.pid}"
 VLLM_MLX_PID_FILE="${VLLM_MLX_PID_FILE:-$PID_DIR/vllm-mlx.pid}"
 
-MAC_LLM_OPS_START_DOCS="${MAC_LLM_OPS_START_DOCS:-true}"
 MAC_LLM_OPS_START_TIMEOUT_SECONDS="${MAC_LLM_OPS_START_TIMEOUT_SECONDS:-180}"
 MAC_LLM_OPS_DOWN_KILL_PORTS="${MAC_LLM_OPS_DOWN_KILL_PORTS:-28080 28020 28100 28000}"
 
@@ -23,7 +18,6 @@ Usage:
   scripts/local-runtime.sh <start|start-docker|stop|stop-managed|stop-docker-vllm|stop-ports|status>
 
 Environment:
-  MAC_LLM_OPS_START_DOCS=true|false     Start MkDocs on make up.
   MAC_LLM_OPS_START_TIMEOUT_SECONDS=180 Seconds to wait for host listeners.
   MAC_LLM_OPS_DOWN_KILL_PORTS="..."     Project host ports to clean on down.
 EOF
@@ -118,7 +112,6 @@ is_project_host_process() {
   [[ "$command" == *"$ROOT_DIR"* ]] && return 0
   [[ "$command" == *"mkdocs serve"* ]] && return 0
   [[ "$command" == *"mac_llm_ops_lab.cli:app"* ]] && return 0
-  [[ "$command" == *"run-model-backed-api.sh"* ]] && return 0
   [[ "$command" == *"run-vllm-mlx-backend.sh"* ]] && return 0
   [[ "$command" == *"vllm-mlx serve"* ]] && return 0
   [[ "$command" == *"vllm_mlx"* ]] && return 0
@@ -175,7 +168,6 @@ stop_known_project_processes() {
   local patterns=(
     "mkdocs serve"
     "mac_llm_ops_lab.cli:app"
-    "run-model-backed-api.sh"
     "run-vllm-mlx-backend.sh"
     "vllm-mlx serve"
     "vllm_mlx"
@@ -300,34 +292,15 @@ start_services() {
     "$LOG_DIR/vllm-mlx.log" \
     "${VLLM_MLX_PORT:-28100}" \
     scripts/run-vllm-mlx-backend.sh
-  start_service \
-    "model-backed-api" \
-    "$NATIVE_API_PID_FILE" \
-    "$LOG_DIR/model-backed-api.log" \
-    "${API_PORT:-28020}" \
-    scripts/run-model-backed-api.sh
-
-  if [[ "$MAC_LLM_OPS_START_DOCS" == "true" ]]; then
-    start_service \
-      "mkdocs" \
-      "$DOCS_PID_FILE" \
-      "$LOG_DIR/mkdocs.log" \
-      "$DOCS_PORT" \
-      uv run mkdocs serve --no-livereload -a "$DOCS_HOST:$DOCS_PORT"
-  fi
 }
 
 stop_managed_services() {
-  stop_pid_file "model-backed-api" "$NATIVE_API_PID_FILE"
   stop_pid_file "vllm-mlx" "$VLLM_MLX_PID_FILE"
-  stop_pid_file "mkdocs" "$DOCS_PID_FILE"
   stop_known_project_processes
 }
 
 status_services() {
-  printf 'Project-managed host services:\n'
-  print_service_status "mkdocs" "$DOCS_PID_FILE" "$DOCS_PORT"
-  print_service_status "model-backed-api" "$NATIVE_API_PID_FILE" "${API_PORT:-28020}"
+  printf 'Project-managed host runtime:\n'
   print_service_status "vllm-mlx" "$VLLM_MLX_PID_FILE" "${VLLM_MLX_PORT:-28100}"
 }
 

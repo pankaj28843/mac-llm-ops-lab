@@ -26,7 +26,7 @@ def _node(
     return ClusterNode(
         node_id=node_id,
         hostname=f"{node_id}.local",
-        api_base_url=api_base_url or f"http://{node_id}.local:28020/v1",
+        api_base_url=api_base_url or f"http://{node_id}.local:28000/v1",
         backend_base_url=backend_base_url or f"http://{node_id}.local:28100/v1",
         backend_id="vllm-mlx",
         chip="Apple M3 Ultra",
@@ -36,7 +36,7 @@ def _node(
         ready=ready,
         healthy=healthy,
         capabilities=capabilities,
-        ports=ports or {"api": 28020, "backend": 28100, "phoenix": 26006},
+        ports=ports or {"api": 28000, "backend": 28100, "phoenix": 26006},
     )
 
 
@@ -46,7 +46,7 @@ def test_fake_cluster_nodes_expose_capabilities_and_high_ports() -> None:
     assert node.to_inventory_record() == {
         "node_id": "studio-a",
         "hostname": "studio-a.local",
-        "api_base_url": "http://studio-a.local:28020/v1",
+        "api_base_url": "http://studio-a.local:28000/v1",
         "backend_base_url": "http://studio-a.local:28100/v1",
         "backend_id": "vllm-mlx",
         "chip": "Apple M3 Ultra",
@@ -56,7 +56,7 @@ def test_fake_cluster_nodes_expose_capabilities_and_high_ports() -> None:
         "ready": True,
         "healthy": True,
         "capabilities": ["mlx", "openai-compatible", "streaming", "otel"],
-        "ports": {"api": 28020, "backend": 28100, "phoenix": 26006},
+        "ports": {"api": 28000, "backend": 28100, "phoenix": 26006},
     }
 
 
@@ -77,7 +77,7 @@ def test_conservative_router_selects_lowest_queue_healthy_registered_node() -> N
         "node_id": "studio-b",
         "backend_id": "vllm-mlx",
         "model_id": "mlx-community/Qwen3-0.6B-8bit",
-        "api_base_url": "http://studio-b.local:28020/v1",
+        "api_base_url": "http://studio-b.local:28000/v1",
         "reason": "least_queue_depth",
         "fallback": False,
     }
@@ -109,7 +109,7 @@ def test_cluster_registration_rejects_unsafe_ports_and_empty_capabilities() -> N
         )
     with pytest.raises(ValueError, match="capabilities"):
         register_cluster_node(
-            _node("studio-a", queue_depth=0, capabilities=(), ports={"api": 28020})
+            _node("studio-a", queue_depth=0, capabilities=(), ports={"api": 28000})
         )
 
 

@@ -33,7 +33,7 @@ validation exists.
 uv sync
 make help
 make validate
-uv run mkdocs serve -a 127.0.0.1:28080
+make up
 ```
 
 `make validate` runs the local proof contract:
@@ -67,13 +67,12 @@ make down
 ```
 
 `make up` starts Docker, native `vllm-mlx` with
-`mlx-community/Qwen3-0.6B-8bit`, the model-backed API, the Compose stack
-configured for the OpenAI-compatible backend, and the project-managed
-non-Docker docs server. `make down` is the memory-release path: it stops
-project-managed host processes, unloads native `vllm-mlx`/model-backed API
-processes when present, stops matching `vllm`/MLX containers, brings Compose
-down, and cleans up repo-specific host listeners. Docker Desktop is left
-running because other projects may have containers or use its VM.
+`mlx-community/Qwen3-0.6B-8bit`, then starts the Compose stack configured for
+the OpenAI-compatible backend. The API, docs site, PostgreSQL, Phoenix, and
+Open WebUI run in Docker. `make down` is the memory-release path: it stops the
+native `vllm-mlx` host process, stops matching `vllm`/MLX containers, brings
+Compose down, and cleans up repo-specific host listeners. Docker Desktop is
+left running because other projects may have containers or use its VM.
 
 ## Local Runtime Shape
 
@@ -82,13 +81,13 @@ Default local bindings intentionally use high ports:
 | Component | URL or Port |
 | --- | --- |
 | API | `http://localhost:28000` |
+| Docs | `http://localhost:28080` |
 | Open WebUI | `http://localhost:23000` |
 | Phoenix | `http://localhost:26006` |
 | PostgreSQL | `localhost:25432` |
 | OTLP gRPC | `localhost:24317` |
 | Phoenix Prometheus | `http://localhost:29090` |
 | Native `vllm-mlx` | `http://127.0.0.1:28100` |
-| Native model-backed API | `http://127.0.0.1:28020` |
 
 Future real-model runtime checks must pass the CPU-safe preflight guard in
 `mac_llm_ops_lab.runtime_guard` first. Model downloads and native backend
@@ -111,14 +110,12 @@ VLLM_MLX_DEFAULT_CHAT_TEMPLATE_KWARGS='{"enable_thinking": false}' \
 scripts/run-vllm-mlx-backend.sh
 ```
 
-Then run this repo's model-backed API:
+Then run this repo's containerized API against the host-only MLX backend:
 
 ```bash
-MODEL_ID=mlx-community/Qwen3-0.6B-8bit \
 MAC_LLM_OPS_BACKEND_KIND=openai-compatible \
-MAC_LLM_OPS_OPENAI_BASE_URL=http://127.0.0.1:28100/v1 \
-API_PORT=28020 \
-scripts/run-model-backed-api.sh
+MAC_LLM_OPS_MODEL_ALLOWLIST=mlx-community/Qwen3-0.6B-8bit \
+docker compose -f compose.yaml up -d --build api open-webui phoenix postgres docs
 ```
 
 Use `/live`, `/ready`, `/v1/models`, `/v1/chat/completions`, streaming chat,

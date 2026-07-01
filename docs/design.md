@@ -47,10 +47,10 @@ sequenceDiagram
 
 ## Backend Boundary
 
-The fake backend is the default for tests and Compose. The native backend is a
-host process reached through the OpenAI-compatible adapter. That keeps Apple
-GPU execution outside the API container while the Docker stack still provides
-PostgreSQL, Phoenix, Open WebUI, and the API service.
+The fake backend is the default for tests and plain Compose. The native backend
+is the only host process and is reached through the OpenAI-compatible adapter.
+That keeps Apple GPU execution outside Docker while the Docker stack provides
+the API, docs site, PostgreSQL, Phoenix, and Open WebUI.
 
 ## Validation Boundary
 

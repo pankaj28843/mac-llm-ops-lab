@@ -35,6 +35,7 @@ services:
   api:
     build:
       context: .
+      target: api
     image: mac-llm-ops-lab-api:local
     depends_on:
       phoenix:
@@ -53,6 +54,14 @@ services:
       MAC_LLM_OPS_PHOENIX_PROJECT_NAME: ${MAC_LLM_OPS_PHOENIX_PROJECT_NAME:-mac-llm-ops-lab-local}
     ports:
       - "${API_HOST_PORT:-28000}:8000"
+
+  docs:
+    build:
+      context: .
+      target: docs
+    image: mac-llm-ops-lab-docs:local
+    ports:
+      - "${DOCS_HOST_PORT:-28080}:8000"
 
   open-webui:
     image: ghcr.io/open-webui/open-webui:main

@@ -26,7 +26,7 @@ uv run mkdocs build --strict
 Preview the docs on a high local port:
 
 ```bash
-uv run mkdocs serve -a 127.0.0.1:28080
+docker compose -f compose.yaml up -d --build docs
 ```
 
 ## Local API Smoke
@@ -38,7 +38,8 @@ Phoenix, Open WebUI, model downloads, or traces:
 uv run python -c "from mac_llm_ops_lab.cli import app; print(app.title)"
 ```
 
-For native model-backed development, start the backend and API on high ports:
+For native model-backed development, start the MLX backend on the host and the
+API in Docker:
 
 ```bash
 MODEL_ID=mlx-community/Qwen3-0.6B-8bit \
@@ -51,11 +52,9 @@ scripts/run-vllm-mlx-backend.sh
 ```
 
 ```bash
-MODEL_ID=mlx-community/Qwen3-0.6B-8bit \
 MAC_LLM_OPS_BACKEND_KIND=openai-compatible \
-MAC_LLM_OPS_OPENAI_BASE_URL=http://127.0.0.1:28100/v1 \
-API_PORT=28020 \
-scripts/run-model-backed-api.sh
+MAC_LLM_OPS_MODEL_ALLOWLIST=mlx-community/Qwen3-0.6B-8bit \
+docker compose -f compose.yaml up -d --build api
 ```
 
 Do not run real-model work without the model download gate.
