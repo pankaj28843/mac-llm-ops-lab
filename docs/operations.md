@@ -11,6 +11,25 @@ printf 'local-dev-password\n' > secrets/postgres_password.txt
 docker compose up -d --build
 ```
 
+The Makefile wraps the local runtime lifecycle:
+
+```bash
+make build
+make up
+make status
+make down
+```
+
+`make up` starts Docker, native `vllm-mlx` with
+`mlx-community/Qwen3-0.6B-8bit`, the model-backed API, Compose configured for
+the OpenAI-compatible backend, and the project-managed non-Docker docs server.
+`make down` stops project-managed host processes first,
+including native `vllm-mlx` and model-backed API processes when present, stops
+matching `vllm`/MLX containers, brings Compose down, clears repo-specific host
+listeners, and leaves Docker Desktop running for other projects. The helpers
+create the ignored local password file with a placeholder value when it is
+missing.
+
 The default local endpoints are:
 
 - API: `http://localhost:28000`

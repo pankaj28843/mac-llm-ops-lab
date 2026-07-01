@@ -31,6 +31,7 @@ validation exists.
 
 ```bash
 uv sync
+make help
 make validate
 uv run mkdocs serve -a 127.0.0.1:28080
 ```
@@ -55,6 +56,24 @@ mac_llm_ops_lab.cli:app
 Importing it builds the FastAPI app with `FakeBatchedBackend`; it does not
 download models, start Docker, connect to PostgreSQL, emit Phoenix traces, or
 require Open WebUI.
+
+Use the local stack helpers for runtime lifecycle work:
+
+```bash
+make build
+make up
+make status
+make down
+```
+
+`make up` starts Docker, native `vllm-mlx` with
+`mlx-community/Qwen3-0.6B-8bit`, the model-backed API, the Compose stack
+configured for the OpenAI-compatible backend, and the project-managed
+non-Docker docs server. `make down` is the memory-release path: it stops
+project-managed host processes, unloads native `vllm-mlx`/model-backed API
+processes when present, stops matching `vllm`/MLX containers, brings Compose
+down, and cleans up repo-specific host listeners. Docker Desktop is left
+running because other projects may have containers or use its VM.
 
 ## Local Runtime Shape
 

@@ -4,10 +4,12 @@
 
 ```bash
 uv sync
+make help
 ```
 
 This installs runtime and dev dependencies, including MkDocs for the local
-learning site.
+learning site. `make help` lists the validation and local runtime lifecycle
+helpers.
 
 ## Validation
 
